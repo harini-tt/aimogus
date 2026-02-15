@@ -188,6 +188,17 @@ class EnvAgentAdapter:
             # Fallback: should not happen, but just in case
             return env_action_mod.Speak(current_location=self.player.location)
 
+        # Fast path: if SPEAK is the only available action, skip the
+        # action-choice LLM call entirely and go straight to speech generation.
+        # This halves the number of LLM calls during meeting discussion rounds.
+        speak_actions = [a for a in available if isinstance(a, env_action_mod.Speak)]
+        if len(available) == len(speak_actions) and speak_actions:
+            self._sync_env_to_agent()
+            chosen = speak_actions[0]
+            message = self._generate_speech()
+            chosen.provide_message(message)
+            return chosen
+
         # Sync latest env observations into the agent's Pydantic context
         self._sync_env_to_agent()
 
