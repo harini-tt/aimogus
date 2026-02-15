@@ -25,6 +25,12 @@ const ROOM_LABELS = {
     'Navigation': 'Nav',
 };
 
+const SPRITE_SHEET_GRID = 3;
+const SPRITE_FRAME_COL = 2;  // top-right frame in a 3x3 sheet
+const SPRITE_FRAME_ROW = 0;
+const PLAYER_SPRITE_SIZE = 24;
+const PLAYER_SPRITE_GAP = 8;
+
 // ============================================================
 // Game State
 // ============================================================
@@ -33,6 +39,7 @@ const GameState = {
     mapConfig: null,
     taskConfig: null,
     mapImage: null,
+    playerSprites: {},
 
     // Precomputed per-turn state
     playerPositions: [],  // [{playerName: roomName, ...}, ...]
@@ -96,6 +103,17 @@ async function loadGame(filename) {
 
     // Load map image
     GameState.mapImage = await loadImage('/assets/skeld.png');
+    GameState.playerSprites = {};
+
+    // Load color sprite sheets used by this game.
+    const usedColors = [...new Set((GameState.gameData.players || []).map(p => p.color))];
+    await Promise.all(usedColors.map(async color => {
+        try {
+            GameState.playerSprites[color] = await loadImage(`/assets/${color}.png`);
+        } catch (err) {
+            console.warn(`Unable to load sprite for color "${color}"`, err);
+        }
+    }));
 
     // Precompute states
     precomputeStates();
@@ -307,8 +325,9 @@ function drawMap(positions, aliveStatus) {
     }
 
     // Draw player tokens
-    const playerSize = 15;
-    const space = 5;
+    const playerSize = PLAYER_SPRITE_SIZE;
+    const space = PLAYER_SPRITE_GAP;
+    const playersByName = new Map((GameState.gameData.players || []).map(player => [player.name, player]));
 
     for (const [room, players] of Object.entries(roomPlayers)) {
         const roomData = mapConfig.mapCoords[room];
@@ -327,20 +346,40 @@ function drawMap(positions, aliveStatus) {
         let y = partY;
 
         players.forEach(playerName => {
-            const player = GameState.gameData.players.find(p => p.name === playerName);
+            const player = playersByName.get(playerName);
             if (!player) return;
 
             const color = COLOR_MAP[player.color] || player.color;
             const isAlive = aliveStatus[playerName];
+            const spriteSheet = GameState.playerSprites[player.color];
 
-            // Draw circle
-            ctx.beginPath();
-            ctx.arc(x + playerSize / 2, y + playerSize / 2, playerSize / 2, 0, Math.PI * 2);
-            ctx.fillStyle = color;
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
+            if (spriteSheet) {
+                const tileW = spriteSheet.width / SPRITE_SHEET_GRID;
+                const tileH = spriteSheet.height / SPRITE_SHEET_GRID;
+                const srcX = SPRITE_FRAME_COL * tileW;
+                const srcY = SPRITE_FRAME_ROW * tileH;
+
+                ctx.drawImage(
+                    spriteSheet,
+                    srcX,
+                    srcY,
+                    tileW,
+                    tileH,
+                    x,
+                    y,
+                    playerSize,
+                    playerSize
+                );
+            } else {
+                // Fallback token if a sprite did not load.
+                ctx.beginPath();
+                ctx.arc(x + playerSize / 2, y + playerSize / 2, playerSize / 2, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
 
             // Draw X for dead players
             if (!isAlive) {
@@ -348,7 +387,7 @@ function drawMap(positions, aliveStatus) {
                 ctx.moveTo(x, y);
                 ctx.lineTo(x + playerSize, y + playerSize);
                 ctx.strokeStyle = '#e94560';
-                ctx.lineWidth = 3;
+                ctx.lineWidth = 2.5;
                 ctx.stroke();
                 ctx.beginPath();
                 ctx.moveTo(x + playerSize, y);

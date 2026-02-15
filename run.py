@@ -40,7 +40,7 @@ _game_file_handler.setFormatter(logging.Formatter("%(message)s"))
 _game_logger.addHandler(_game_file_handler)
 
 from envs.game import AmongUs
-from envs.configs.game_config import FIVE_MEMBER_GAME, SEVEN_MEMBER_GAME
+from envs.configs.game_config import FIVE_MEMBER_GAME, NINE_MEMBER_GAME, SEVEN_MEMBER_GAME
 from envs.configs.map_config import map_coords
 
 # ---------------------------------------------------------------------------
@@ -79,8 +79,8 @@ def _ensure_map_image(assets_dir: str) -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run an Among Us AI agent game.")
     parser.add_argument(
-        "--players", type=int, choices=[5, 7], default=7,
-        help="Number of players: 5 or 7 (default: 7)",
+        "--players", type=int, choices=[5, 7, 9], default=9,
+        help="Number of players: 5, 7, or 9 (default: 9)",
     )
     parser.add_argument(
         "--no-ui", action="store_true",
@@ -105,7 +105,7 @@ def main() -> None:
     args = parse_args()
 
     # --- Game config ---
-    game_config = FIVE_MEMBER_GAME if args.players == 5 else SEVEN_MEMBER_GAME
+    game_config = FIVE_MEMBER_GAME if args.players == 5 else SEVEN_MEMBER_GAME if args.players == 7 else NINE_MEMBER_GAME
 
     # --- UI ---
     ui = None
