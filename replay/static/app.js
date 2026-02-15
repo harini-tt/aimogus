@@ -270,32 +270,47 @@ function drawMap(positions, aliveStatus) {
         ctx.drawImage(GameState.mapImage, 0, 0, canvas.width, canvas.height);
     }
 
-    // Draw room polygons
+    // Transform overlays/players to align with skeld.png
+    ctx.save();
+    ctx.translate(75, 8);
+    ctx.scale(0.92, 0.92);
+
+    // Draw translucent room overlays + labels
     for (const [room, data] of Object.entries(mapConfig.mapCoords)) {
         const coords = data.coords;
+        const xCoords = coords.filter((_, i) => i % 2 === 0);
+        const yCoords = coords.filter((_, i) => i % 2 !== 0);
+        const midX = (Math.max(...xCoords) + Math.min(...xCoords)) / 2;
+        const minY = Math.min(...yCoords);
+
+        // Translucent white fill
         ctx.beginPath();
         ctx.moveTo(coords[0], coords[1]);
         for (let i = 2; i < coords.length; i += 2) {
             ctx.lineTo(coords[i], coords[i + 1]);
         }
         ctx.closePath();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
         ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Room label
-        const xCoords = coords.filter((_, i) => i % 2 === 0);
-        const yCoords = coords.filter((_, i) => i % 2 !== 0);
-        const midX = (Math.max(...xCoords) + Math.min(...xCoords)) / 2;
-        const minY = Math.min(...yCoords);
+        // Room label badge
         const label = ROOM_LABELS[room] || room;
-
-        ctx.fillStyle = '#000';
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
+
+        const textW = ctx.measureText(label).width;
+        const badgeX = midX - textW / 2 - 4;
+        const badgeY = minY + 1;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        ctx.beginPath();
+        ctx.roundRect(badgeX, badgeY, textW + 8, 15, 4);
+        ctx.fill();
+
+        ctx.fillStyle = '#fff';
         ctx.fillText(label, midX, minY + 3);
     }
 
@@ -326,6 +341,17 @@ function drawMap(positions, aliveStatus) {
         let x = minX + space;
         let y = partY;
 
+        // Draw a subtle dark backdrop behind player tokens for readability
+        if (players.length > 0) {
+            const rows = Math.ceil(players.length / Math.floor((maxX - minX - space) / (playerSize + space)));
+            const bgW = Math.min(players.length, Math.floor((maxX - minX - space) / (playerSize + space))) * (playerSize + space) + space;
+            const bgH = rows * (playerSize + space) + space;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.beginPath();
+            ctx.roundRect(x - 3, y - 3, bgW + 2, bgH + 2, 6);
+            ctx.fill();
+        }
+
         players.forEach(playerName => {
             const player = GameState.gameData.players.find(p => p.name === playerName);
             if (!player) return;
@@ -333,14 +359,17 @@ function drawMap(positions, aliveStatus) {
             const color = COLOR_MAP[player.color] || player.color;
             const isAlive = aliveStatus[playerName];
 
-            // Draw circle
+            // Draw circle with white outline for visibility
+            const cx = x + playerSize / 2;
+            const cy = y + playerSize / 2;
             ctx.beginPath();
-            ctx.arc(x + playerSize / 2, y + playerSize / 2, playerSize / 2, 0, Math.PI * 2);
+            ctx.arc(cx, cy, playerSize / 2 + 1.5, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(cx, cy, playerSize / 2, 0, Math.PI * 2);
             ctx.fillStyle = color;
             ctx.fill();
-            ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
 
             // Draw X for dead players
             if (!isAlive) {
@@ -364,6 +393,8 @@ function drawMap(positions, aliveStatus) {
             }
         });
     }
+
+    ctx.restore();
 }
 
 // ============================================================
