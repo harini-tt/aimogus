@@ -101,19 +101,44 @@ class OpenRouterAgent(BaseAgent):
         """
         messages = self.format_context()
 
-        logger.info(
-            "=== OpenRouter Request [%s] (model=%s) ===\n%s",
-            self.name,
-            kwargs.get("model", self.model),
-            json.dumps(messages, indent=2),
-        )
+        # logger.info(
+        #     "=== OpenRouter Request [%s] (model=%s) ===\n%s",
+        #     self.name,
+        #     kwargs.get("model", self.model),
+        #     json.dumps(messages, indent=2),
+        # )
 
         response = self.client.chat.completions.create(
             model=kwargs.pop("model", self.model),
             messages=messages,
             **kwargs,
         )
-        completion_text = response.choices[0].message.content or ""
+        message = response.choices[0].message
+        completion_text = message.content or ""
+
+        # Some reasoning models (e.g. kimi-k2.5) may place their actual
+        # answer in a ``reasoning`` or ``reasoning_content`` attribute
+        # instead of (or in addition to) ``content``.  When ``content``
+        # comes back empty, try to recover from these alternative fields.
+        if not completion_text.strip():
+            reasoning = (
+                getattr(message, "reasoning", None)
+                or getattr(message, "reasoning_content", None)
+            )
+            if reasoning and isinstance(reasoning, str) and reasoning.strip():
+                logger.info(
+                    "[%s] content was empty; falling back to reasoning field.",
+                    self.name,
+                )
+                completion_text = reasoning
+
+        if not completion_text.strip():
+            logger.warning(
+                "[%s] OpenRouter returned a completely empty response "
+                "(model=%s). This may cause action-parsing failures.",
+                self.name,
+                self.model,
+            )
 
         logger.info(
             "=== OpenRouter Response [%s] ===\n%s",

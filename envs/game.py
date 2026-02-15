@@ -64,6 +64,7 @@ class AmongUs:
         self.discussion_rounds_left = self.game_config["discussion_rounds"]
         self.votes = {}
         self.vote_info_one_round = {}
+        self.meeting_caller = None
         
         # game state
         
@@ -231,6 +232,9 @@ class AmongUs:
         return (action, obs_loc)
 
     def game_step(self):
+        print(f"\n{'='*60}")
+        print(f"  TURN {self.timestep} — Phase: {self.current_phase}")
+        print(f"{'='*60}")
         if self.current_phase == "task":
             self.task_phase_step()
         elif self.current_phase == "meeting":
@@ -242,17 +246,28 @@ class AmongUs:
         self.check_actions()
 
         # Phase 2: all agents choose in parallel via threads
+        # Keep the UI responsive while waiting for LLM responses.
+        import time
         choices = [None] * len(self.agents)
         with ThreadPoolExecutor(max_workers=len(self.agents)) as executor:
             future_to_idx = {
                 executor.submit(self._agent_choose, agent): idx
                 for idx, agent in enumerate(self.agents)
             }
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                choices[idx] = future.result()
+            pending = set(future_to_idx.keys())
+            while pending:
+                # Pump the Tkinter event loop so the window doesn't freeze
+                if self.UI:
+                    self.UI.master.update()
+                done = {f for f in pending if f.done()}
+                for future in done:
+                    idx = future_to_idx[future]
+                    choices[idx] = future.result()
+                    pending.discard(future)
+                if pending:
+                    time.sleep(0.1)  # avoid busy-spinning
 
-        # Phase 3: apply all chosen actions sequentially
+        # Phase 3: apply all chosen actions sequentially, updating UI after each
         for agent, choice in zip(self.agents, choices):
             if choice is None:
                 continue
@@ -267,11 +282,9 @@ class AmongUs:
             else:
                 self.record_activity(agent.player, action)
             agent.player.make_action(self, action, obs_loc)
+            self.update_map()  # refresh UI after each action so you see players move
             if self.current_phase == "meeting":
                 break
-
-        # Phase 4: update map once
-        self.update_map()
             
     
     def meeting_phase(self):
@@ -321,7 +334,7 @@ class AmongUs:
 
         # Inject the full meeting transcript into every agent's context
         # so they can reference it when voting.
-        called_by = "Unknown"  # TODO: track who triggered the meeting
+        called_by = self.meeting_caller or "Unknown"
         for agent in self.agents:
             agent.inject_meeting_transcript(
                 transcript=meeting_transcript,
@@ -351,6 +364,7 @@ class AmongUs:
 
         # Vote out
         self.voteout()
+        self.meeting_caller = None  # reset for next meeting
         self.update_map()
         
         

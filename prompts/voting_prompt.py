@@ -1,15 +1,17 @@
 VOTING_PROMPT = """\
 The discussion phase is over. It's time to vote.
 
-Here is a summary of the meeting discussion:
+Meeting summary:
 
 {meeting_summary}
 
 Players still alive (eligible targets): {alive_players}
 
-Based on the discussion and everything you know, decide who to vote for.
-You may also choose to skip the vote if you are unsure.
+Decide who to vote for, or skip if unsure.
 
-Respond with ONLY the name of the player you want to eject, or "skip" to
-skip the vote. Do not explain your reasoning — just the name or "skip".\
+Respond as JSON with:
+- "reasoning": your private analysis of who is most suspicious and why
+- "vote": the player name exactly as listed above (e.g. "Player 3: green"), or "skip"
+
+Output ONLY valid JSON.\
 """
