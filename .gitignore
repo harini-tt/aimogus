@@ -3,5 +3,7 @@
 **/*/__pycache__/
 *.pyc
 logs/
-.notes
+.notes/notes.md
+.notes/notes2.md
+
 eval_results/
