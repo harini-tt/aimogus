@@ -28,8 +28,8 @@ NINE_MEMBER_GAME ={
     "num_common_tasks": 1,
     "num_short_tasks": 1,
     "num_long_tasks": 1,
-    "discussion_rounds": 3,
+    "discussion_rounds": 2,
     "max_num_buttons": 2,
     "kill_cooldown": 3,
-    "max_timesteps": 50
+    "max_timesteps": 25
 }

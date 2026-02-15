@@ -33,13 +33,13 @@ class GRPOConfig:
     lr: float = 1e-6
     """Learning rate (used when creating the optimizer externally)."""
 
-    batch_size: int = 16
+    batch_size: int = 4
     """Mini-batch size for forward passes."""
 
     epochs_per_iteration: int = 2
     """Number of full passes over the trajectory batch per GRPO iteration."""
 
-    max_seq_len: int = 2048
+    max_seq_len: int = 1024
     """Maximum total (prompt + completion) sequence length.
     Sequences longer than this are truncated from the left of the prompt."""
 

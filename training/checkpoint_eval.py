@@ -123,9 +123,15 @@ def run_local_truthfulqa(
             {"role": "user", "content": prompt_text},
         ]
 
-        input_ids = tokenizer.apply_chat_template(
+        tokenized = tokenizer.apply_chat_template(
             messages, return_tensors="pt", add_generation_prompt=True,
-        ).to(model.device)
+        )
+        if hasattr(tokenized, "input_ids"):
+            input_ids = tokenized.input_ids.to(model.device)
+        elif hasattr(tokenized, "to"):
+            input_ids = tokenized.to(model.device)
+        else:
+            input_ids = torch.tensor([tokenized], dtype=torch.long).to(model.device)
 
         with torch.no_grad():
             output = model.generate(

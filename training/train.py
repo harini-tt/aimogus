@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-NUM_INFERENCE_GPUS = 4
-GAMES_PER_GPU = 15
+NUM_INFERENCE_GPUS = 8
+GAMES_PER_GPU = 10
 GAMES_PER_ITERATION = NUM_INFERENCE_GPUS * GAMES_PER_GPU  # ~60
 
 
@@ -80,10 +80,10 @@ def download_base_model() -> None:
 
 @app.function(
     image=training_image,
-    gpu="A100",
+    gpu="A100-80GB",
     volumes={VOLUME_PATH: volume},
     secrets=[openrouter_secret],
-    timeout=600,
+    timeout=900,
 )
 def run_rollout_batch(
     iteration: int,
@@ -157,7 +157,7 @@ def run_rollout_batch(
 
 @app.function(
     image=training_image,
-    gpu="A100",
+    gpu="A100-80GB",
     volumes={VOLUME_PATH: volume},
     timeout=600,
 )
@@ -261,7 +261,7 @@ def run_grpo_update(
 
 @app.function(
     image=training_image,
-    gpu="A100",
+    gpu="A100-80GB",
     volumes={VOLUME_PATH: volume},
     secrets=[openrouter_secret],
     timeout=1200,
