@@ -8,6 +8,7 @@ from envs.task import TaskAssignment
 from envs.configs.game_config import FIVE_MEMBER_GAME, SEVEN_MEMBER_GAME
 from envs.tools import GetBestPath
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from prompts import TASK_PHASE_INSTRUCTION, MEETING_PHASE_INSTRUCTION
 
 # Map env identity string -> agents.models.Role
@@ -92,12 +93,13 @@ class AmongUs:
     
     def initialize_agents(self):
         tools = [GetBestPath(metadata={'network': self.map.ship_map})]
+        player_names = [f"{p.name}: {p.color}" for p in self.players]
         self.agents = []
         for idx, player in enumerate(self.players):
-            agent = self._build_agent(player, idx)
+            agent = self._build_agent(player, idx, player_names)
             self.agents.append(EnvAgentAdapter(player, tools, agent=agent))
 
-    def _build_agent(self, player, idx: int):
+    def _build_agent(self, player, idx: int, player_names: list[str]):
         """Create the appropriate BaseAgent subclass for *player*."""
         role = _IDENTITY_TO_ROLE.get(player.identity, Role.CREWMATE)
         task_names = [str(t) for t in player.tasks] if len(player.tasks) > 0 else []
@@ -115,6 +117,7 @@ class AmongUs:
                 name=player.name,
                 role=role,
                 assigned_tasks=task_names,
+                player_names=player_names,
                 model=model,
             )
         else:
@@ -122,6 +125,7 @@ class AmongUs:
                 name=player.name,
                 role=role,
                 assigned_tasks=task_names,
+                player_names=player_names,
                 model=model,
             )
         
@@ -202,6 +206,30 @@ class AmongUs:
         agent.player.make_action(self, action, observation_location)
         self.update_map()
         
+    def _agent_choose(self, agent):
+        """Choose an action for one agent (thread-safe, no mutations to shared game state).
+        
+        Called from task_phase_step() inside a ThreadPoolExecutor so that all
+        agents' LLM calls run in parallel.  Only reads shared game state and
+        writes to the agent's own player/agent objects.
+        
+        Returns (action, observation_location) or None if the agent is dead.
+        """
+        if not agent.player.is_alive:
+            return None
+        # kill cooldown
+        if agent.player.identity == "Impostor" and agent.player.kill_cooldown > 0:
+            agent.player.kill_cooldown -= 1
+        # interview
+        if self.interviewer is not None:
+            self.interviewer.auto_question(self, agent)
+        # choose action
+        action = agent.choose_action()
+        obs_loc = ''
+        if action.name == 'ViewMonitor':
+            obs_loc = agent.choose_observation_location(self.map.ship_map.nodes)
+        return (action, obs_loc)
+
     def game_step(self):
         if self.current_phase == "task":
             self.task_phase_step()
@@ -210,10 +238,40 @@ class AmongUs:
         self.timestep += 1
     
     def task_phase_step(self):
-        for agent in self.agents:
-            self.agent_step(agent)
+        # Phase 1: compute available actions for ALL agents on the shared snapshot
+        self.check_actions()
+
+        # Phase 2: all agents choose in parallel via threads
+        choices = [None] * len(self.agents)
+        with ThreadPoolExecutor(max_workers=len(self.agents)) as executor:
+            future_to_idx = {
+                executor.submit(self._agent_choose, agent): idx
+                for idx, agent in enumerate(self.agents)
+            }
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                choices[idx] = future.result()
+
+        # Phase 3: apply all chosen actions sequentially
+        for agent, choice in zip(self.agents, choices):
+            if choice is None:
+                continue
+            action, obs_loc = choice
+            self.camera_record[agent.player.name] = action
+            if str(action).startswith("KILL"):
+                location = agent.player.location
+                players = self.map.get_players_in_room(location)
+                witness = [player.name for player in players]
+                additional_info = f"Location: {location}, Witness: {witness}"
+                self.record_activity(agent.player, action, additional_info)
+            else:
+                self.record_activity(agent.player, action)
+            agent.player.make_action(self, action, obs_loc)
             if self.current_phase == "meeting":
-                break    
+                break
+
+        # Phase 4: update map once
+        self.update_map()
             
     
     def meeting_phase(self):
@@ -222,13 +280,35 @@ class AmongUs:
             player.location = "Cafeteria"
             
         self.update_map()
-        
+
+        # Shared transcript — collects all speeches across discussion rounds
+        meeting_transcript: list[dict] = []
+        meeting_round = self.game_config["discussion_rounds"] - self.discussion_rounds_left
+
         # Discussion
-        for round in range(self.game_config["discussion_rounds"]):
-            print("Discussion round", round+1)
+        for rnd in range(self.game_config["discussion_rounds"]):
+            print("Discussion round", rnd + 1)
             for agent in self.agents:
                 self.agent_step(agent)
+                # If the agent just spoke, capture it into the transcript
+                last_action = agent.player.action_history[-1]["action"] if agent.player.action_history else None
+                if last_action is not None and last_action.name == "SPEAK":
+                    meeting_transcript.append({
+                        "speaker": agent.player.name,
+                        "content": last_action.message,
+                    })
             self.discussion_rounds_left -= 1
+
+        # Inject the full meeting transcript into every agent's context
+        # so they can reference it when voting.
+        called_by = "Unknown"  # TODO: track who triggered the meeting
+        for agent in self.agents:
+            agent.inject_meeting_transcript(
+                transcript=meeting_transcript,
+                called_by=called_by,
+                round_num=meeting_round,
+            )
+
         # Voting
         self.vote_info_one_round = {}
         for agent in self.agents:
@@ -239,29 +319,39 @@ class AmongUs:
         
         
     def voteout(self):
-        round = self.game_config["discussion_rounds"] - self.discussion_rounds_left
-        max_votes = max(self.votes.values())
-        print(self.vote_info_one_round)
-        players_with_max_votes = [player for player, votes in self.votes.items() if votes == max_votes]
+        round_num = self.game_config["discussion_rounds"] - self.discussion_rounds_left
+
+        # Build human-readable vote summary
         vote_info = []
-        print(self.votes)
         for voter, vote_target in self.vote_info_one_round.items():
-            print(voter)
-            vote_info.append(f"{str(voter)} voted for {str(vote_target)}")
+            vote_info.append(f"{voter} voted for {vote_target}")
+        print(self.vote_info_one_round)
+        print(self.votes)
+
+        # Determine outcome — if everyone skipped, self.votes is empty
+        if self.votes:
+            max_votes = max(self.votes.values())
+            players_with_max_votes = [
+                player for player, votes in self.votes.items()
+                if votes == max_votes
+            ]
+        else:
+            players_with_max_votes = []
+
         if len(players_with_max_votes) == 1:
             player = players_with_max_votes[0]
             player.is_alive = False
             import_event = {"timestep": self.timestep,
                       "phase": self.current_phase,
-                      "round": round, 
-                      "action": f"{player.name} was voted out! Detailed vote info:{vote_info}", 
+                      "round": round_num,
+                      "action": f"{player.name} was voted out! Detailed vote info:{vote_info}",
                       "player": "all players"}
             print(f"== {player.name} was voted out ==")
         else:
             import_event = {"timestep": self.timestep,
                       "phase": self.current_phase,
-                      "round": round, 
-                      "action": f"No one was voted out. Detailed vote info:{vote_info}", 
+                      "round": round_num,
+                      "action": f"No one was voted out. Detailed vote info:{vote_info}",
                       "player": "all players"}
             print("== No one was voted out ==")
         self.important_activity_log.append(import_event)
@@ -362,6 +452,11 @@ class MessageSystem:
                 self.send_message(player, self.create_location_message(record, env), info_type="location")  
     
     def route_real_time_message(self, env, record):
+        # During meetings, speech is handled via the transcript object and
+        # votes must stay secret — skip all real-time broadcasting.
+        if env.current_phase == "meeting":
+            return
+
         player = record["player"]
         action = record["action"]
         location = action.current_location 

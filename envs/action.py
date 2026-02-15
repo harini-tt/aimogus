@@ -107,9 +107,24 @@ class Vote(Action):
     def can_execute_actions(env, player):
         if env.current_phase == "meeting" and env.discussion_rounds_left == 0:
             alive_players_excluding_self = [p for p in env.players if p.is_alive and p != player]
-            return [Vote(player.location, other_player) for other_player in alive_players_excluding_self]
+            actions = [Vote(player.location, other_player) for other_player in alive_players_excluding_self]
+            actions.append(SkipVote(player.location))
+            return actions
         else:
             return []
+
+
+class SkipVote(Action):
+    def __init__(self, current_location):
+        super().__init__("SKIP VOTE", current_location=current_location)
+
+    def __repr__(self):
+        return "SKIP VOTE"
+
+    def execute(self, env, player):
+        super().execute(env, player)
+        env.vote_info_one_round[player.name] = "skip"
+
 
 class Speak(Action):
     def __init__(self, current_location):
