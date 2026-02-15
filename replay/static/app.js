@@ -102,7 +102,7 @@ async function loadGame(filename) {
     const usedColors = [...new Set((GameState.gameData.players || []).map(p => p.color))];
     await Promise.all(usedColors.map(async color => {
         try {
-            GameState.playerSprites[color] = await loadImage(`/assets/${color}.png`);
+            GameState.playerSprites[color] = await loadImage(`/assets/sprites/${color}.png`);
         } catch (err) {
             console.warn(`Unable to load sprite for color "${color}"`, err);
         }
@@ -185,31 +185,30 @@ function precomputeStates() {
     progress.push(0);
 
     data.turns.forEach(turn => {
-        // Clone current state at start of turn
+        // Capture the state at the start of this turn (before turn actions).
         const turnPositions = { ...currentPositions };
         const turnAlive = { ...currentAlive };
 
         if (turn.phase === 'meeting') {
-            // During meetings, all alive players are in Cafeteria
+            // Meetings start with everyone alive in Cafeteria.
             Object.keys(turnPositions).forEach(name => {
                 if (turnAlive[name]) turnPositions[name] = 'Cafeteria';
             });
         }
 
-        // Process events to update state
+        positions.push(turnPositions);
+        alive.push({ ...turnAlive });
+        progress.push(computeTaskProgress(turnAlive));
+
+        // Apply this turn's events to produce the next turn's starting state.
         turn.events.forEach(event => {
             const player = event.player;
-            if (event.type === 'move') {
-                turnPositions[player] = event.to;
-                currentPositions[player] = event.to;
-            } else if (event.type === 'vent') {
-                turnPositions[player] = event.to;
+            if (event.type === 'move' || event.type === 'vent') {
                 currentPositions[player] = event.to;
             } else if (event.type === 'kill') {
-                turnAlive[event.victim] = false;
                 currentAlive[event.victim] = false;
             } else if (event.type === 'complete_task') {
-                // Decrement remaining duration; mark complete when <= 0
+                // Decrement remaining duration; mark complete when <= 0.
                 if (taskDurations[player] && taskDurations[player][event.task] !== undefined) {
                     taskDurations[player][event.task]--;
                     if (taskDurations[player][event.task] <= 0) {
@@ -219,22 +218,17 @@ function precomputeStates() {
             }
         });
 
-        // Handle voteout
+        // Handle voteout at end of meeting.
         if (turn.voteResult && turn.voteResult.ejected) {
-            turnAlive[turn.voteResult.ejected] = false;
             currentAlive[turn.voteResult.ejected] = false;
         }
 
-        // After meeting, reset positions to Cafeteria for alive players
+        // Meetings end with alive players in Cafeteria for the next turn.
         if (turn.phase === 'meeting') {
             Object.keys(currentPositions).forEach(name => {
                 if (currentAlive[name]) currentPositions[name] = 'Cafeteria';
             });
         }
-
-        positions.push(turnPositions);
-        alive.push({ ...turnAlive });
-        progress.push(computeTaskProgress(turnAlive));
     });
 
     GameState.playerPositions = positions;

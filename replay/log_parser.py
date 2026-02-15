@@ -238,6 +238,15 @@ def parse_game(filepath):
     if current_turn is not None:
         turns.append(current_turn)
 
+    # Ensure the replay always has an explicit zeroth turn representing
+    # the initial game state (all players alive in Cafeteria).
+    if not turns or turns[0].get("turnNumber", 0) != 0:
+        turns.insert(0, {
+            "turnNumber": 0,
+            "phase": "task",
+            "events": [],
+        })
+
     return {
         "players": players,
         "config": config,
