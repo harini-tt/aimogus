@@ -73,6 +73,111 @@ main {
     position: relative;
 }
 
+/* --- Walkway Editor --- */
+.walkway-editor {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 11;
+    width: 240px;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    color: #ddd;
+    font-size: 12px;
+}
+
+.walkway-editor.hidden {
+    display: none;
+}
+
+.walkway-editor-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.walkway-editor-row.hidden {
+    display: none;
+}
+
+.walkway-editor-row.walkway-editor-actions {
+    justify-content: space-between;
+}
+
+.walkway-editor-label {
+    width: 44px;
+    color: #aaa;
+}
+
+.walkway-editor-select {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #ddd;
+    padding: 4px 6px;
+    border-radius: 4px;
+    outline: none;
+}
+
+.walkway-editor-btn {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #ddd;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.walkway-editor-btn:hover {
+    border-color: rgba(255, 255, 255, 0.28);
+    color: #fff;
+}
+
+.walkway-editor-file input[type="file"] {
+    display: none;
+}
+
+.walkway-editor-coords {
+    margin-left: auto;
+    color: #bbb;
+    font-variant-numeric: tabular-nums;
+}
+
+.walkway-editor-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.walkway-editor-toggle {
+    color: #bbb;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.walkway-magnifier {
+    margin-top: 8px;
+    width: 180px;
+    height: 180px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.walkway-editor-hint {
+    margin-top: 6px;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.25;
+    min-height: 28px;
+}
+
 /* --- Fullscreen Button --- */
 .fullscreen-btn {
     position: absolute;

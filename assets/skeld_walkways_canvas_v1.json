@@ -1,0 +1,11 @@
+{
+  "meta": {
+    "version": "canvas_v1",
+    "canvasWidth": 980,
+    "canvasHeight": 561,
+    "notes": "Walkway graph for smooth replay animation. Coordinates are in replay canvas pixel space."
+  },
+  "nodes": {},
+  "edges": [],
+  "roomAnchors": {}
+}

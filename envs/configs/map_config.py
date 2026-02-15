@@ -102,20 +102,19 @@ vent_connections = [
 connections = [
     ("Cafeteria", "Weapons"),
     ("Cafeteria", "Admin"),
+    ("Cafeteria", "Storage"),
     ("Cafeteria", "Upper Engine"),
     ("Cafeteria", "Medbay"),
     ("Weapons", "Navigation"),
     ("Weapons", "O2"),
+    ("O2", "Navigation"),
     ("Navigation", "Shields"),
-    ("O2", "Shields"),
-    ("O2", "Admin"),
     ("Shields", "Communications"),
     ("Shields", "Storage"),
     ("Communications", "Storage"),
     ("Storage", "Admin"),
     ("Storage", "Electrical"),
     ("Storage", "Lower Engine"),
-    ("Admin", "Electrical"),
     ("Electrical", "Lower Engine"),
     ("Lower Engine", "Security"),
     ("Lower Engine", "Reactor"),
@@ -124,7 +123,6 @@ connections = [
     ("Security", "Upper Engine"),
     ("Reactor", "Upper Engine"),
     ("Upper Engine", "Medbay"),
-    ("Medbay", "Cafeteria"),
 ]
 
 map_coords = {
