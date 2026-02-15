@@ -20,7 +20,8 @@
     <div id="player-roster" class="player-roster hidden"></div>
 
     <main>
-        <div class="map-area">
+        <div class="map-area" id="map-area">
+            <button id="btn-fullscreen" class="fullscreen-btn" title="Toggle fullscreen">&#x26F6;</button>
             <canvas id="game-map" width="980" height="561"></canvas>
 
             <!-- Task progress bar -->
@@ -60,14 +61,18 @@
                 </div>
             </div>
 
-            <!-- Meeting panel (shown during meeting phases) -->
+            <!-- Meeting chat overlay (toggled via button) -->
             <div id="meeting-panel" class="meeting-panel hidden">
                 <div class="meeting-header">
                     <h3 id="meeting-title">Emergency Meeting</h3>
+                    <button id="btn-close-chat" class="chat-close-btn" title="Close chat">&times;</button>
                 </div>
                 <div id="speech-bubbles" class="speech-bubbles"></div>
                 <div id="vote-results" class="vote-results hidden"></div>
             </div>
+
+            <!-- Floating chat toggle -->
+            <button id="btn-chat-toggle" class="chat-toggle-btn hidden" title="Toggle meeting chat">&#128172;</button>
         </div>
 
         <aside class="activity-sidebar">

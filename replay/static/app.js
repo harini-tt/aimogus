@@ -28,8 +28,8 @@ const ROOM_LABELS = {
 const SPRITE_SHEET_GRID = 3;
 const SPRITE_FRAME_COL = 2;  // top-right frame in a 3x3 sheet
 const SPRITE_FRAME_ROW = 0;
-const PLAYER_SPRITE_SIZE = 24;
-const PLAYER_SPRITE_GAP = 8;
+const PLAYER_SPRITE_SIZE = 36;
+const PLAYER_SPRITE_GAP = 2;
 
 // ============================================================
 // Game State
@@ -349,21 +349,23 @@ function drawMap(positions, aliveStatus) {
         const maxX = Math.max(...xCoords);
         const minY = Math.min(...yCoords);
         const maxY = Math.max(...yCoords);
-        const partY = (maxY - minY) / 3 + minY;
+        const roomW = maxX - minX;
+        const roomH = maxY - minY;
 
-        let x = minX + space;
-        let y = partY;
+        // Figure out how many fit per row and how many rows needed
+        const perRow = Math.max(1, Math.floor((roomW - space) / (playerSize + space)));
+        const rowsNeeded = Math.ceil(players.length / perRow);
+        const availH = roomH - 16; // leave room for label at top
 
-        // Draw a subtle dark backdrop behind player tokens for readability
-        if (players.length > 0) {
-            const rows = Math.ceil(players.length / Math.floor((maxX - minX - space) / (playerSize + space)));
-            const bgW = Math.min(players.length, Math.floor((maxX - minX - space) / (playerSize + space))) * (playerSize + space) + space;
-            const bgH = rows * (playerSize + space) + space;
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.beginPath();
-            ctx.roundRect(x - 3, y - 3, bgW + 2, bgH + 2, 6);
-            ctx.fill();
+        // Shrink sprites if they'd overflow the room vertically
+        let sz = playerSize;
+        if (rowsNeeded * (sz + space) > availH) {
+            sz = Math.max(16, Math.floor((availH - space) / rowsNeeded) - space);
         }
+
+        const startY = minY + 16; // below label
+        let x = minX + space;
+        let y = startY;
 
         players.forEach(playerName => {
             const player = playersByName.get(playerName);
@@ -381,19 +383,12 @@ function drawMap(positions, aliveStatus) {
 
                 ctx.drawImage(
                     spriteSheet,
-                    srcX,
-                    srcY,
-                    tileW,
-                    tileH,
-                    x,
-                    y,
-                    playerSize,
-                    playerSize
+                    srcX, srcY, tileW, tileH,
+                    x, y, sz, sz
                 );
             } else {
-                // Fallback token if a sprite did not load.
                 ctx.beginPath();
-                ctx.arc(x + playerSize / 2, y + playerSize / 2, playerSize / 2, 0, Math.PI * 2);
+                ctx.arc(x + sz / 2, y + sz / 2, sz / 2, 0, Math.PI * 2);
                 ctx.fillStyle = color;
                 ctx.fill();
                 ctx.strokeStyle = 'rgba(0,0,0,0.5)';
@@ -405,21 +400,21 @@ function drawMap(positions, aliveStatus) {
             if (!isAlive) {
                 ctx.beginPath();
                 ctx.moveTo(x, y);
-                ctx.lineTo(x + playerSize, y + playerSize);
+                ctx.lineTo(x + sz, y + sz);
                 ctx.strokeStyle = '#e94560';
                 ctx.lineWidth = 2.5;
                 ctx.stroke();
                 ctx.beginPath();
-                ctx.moveTo(x + playerSize, y);
-                ctx.lineTo(x, y + playerSize);
+                ctx.moveTo(x + sz, y);
+                ctx.lineTo(x, y + sz);
                 ctx.stroke();
             }
 
-            // Advance position
-            x += playerSize + space;
-            if (x > maxX - playerSize - space) {
+            // Advance position, wrap to next row within room bounds
+            x += sz + space;
+            if (x + sz > maxX - space) {
                 x = minX + space;
-                y += playerSize + space;
+                y += sz + space;
             }
         });
     }
@@ -602,12 +597,18 @@ function updateMeetingPanel(turn) {
     const panel = document.getElementById('meeting-panel');
     const bubblesEl = document.getElementById('speech-bubbles');
     const votesEl = document.getElementById('vote-results');
+    const toggleBtn = document.getElementById('btn-chat-toggle');
 
     if (!turn || turn.phase !== 'meeting') {
         panel.classList.add('hidden');
+        toggleBtn.classList.add('hidden');
+        toggleBtn.classList.remove('has-chat');
         return;
     }
 
+    // Show the toggle button, auto-open the panel
+    toggleBtn.classList.remove('hidden');
+    toggleBtn.classList.add('has-chat');
     panel.classList.remove('hidden');
 
     // Determine meeting trigger
@@ -725,6 +726,24 @@ function setupControls() {
             setSpeed(parseFloat(btn.dataset.speed));
         });
     });
+
+    document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
+    document.getElementById('btn-chat-toggle').addEventListener('click', toggleChat);
+    document.getElementById('btn-close-chat').addEventListener('click', toggleChat);
+}
+
+function toggleChat() {
+    const panel = document.getElementById('meeting-panel');
+    panel.classList.toggle('hidden');
+}
+
+function toggleFullscreen() {
+    const mapArea = document.getElementById('map-area');
+    if (!document.fullscreenElement) {
+        mapArea.requestFullscreen().catch(() => {});
+    } else {
+        document.exitFullscreen();
+    }
 }
 
 function setupKeyboardShortcuts() {
@@ -756,6 +775,9 @@ function setupKeyboardShortcuts() {
                 break;
             case 'End':
                 jumpToEnd();
+                break;
+            case 'KeyF':
+                toggleFullscreen();
                 break;
         }
     });

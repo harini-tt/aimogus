@@ -123,6 +123,68 @@ main {
 .map-area {
     flex: 1;
     min-width: 0;
+    position: relative;
+}
+
+/* --- Fullscreen Button --- */
+.fullscreen-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.fullscreen-btn:hover {
+    background: rgba(233, 69, 96, 0.8);
+}
+
+/* --- Fullscreen Mode --- */
+.map-area:fullscreen,
+.map-area:-webkit-full-screen {
+    background: #0a0a1a;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow-y: auto;
+}
+
+.map-area:fullscreen #game-map,
+.map-area:-webkit-full-screen #game-map {
+    width: 100vw;
+    max-width: 100vw;
+    height: auto;
+    border: none;
+    border-radius: 0;
+}
+
+.map-area:fullscreen .task-progress-container,
+.map-area:-webkit-full-screen .task-progress-container {
+    max-width: 100%;
+    padding: 4px 16px;
+}
+
+.map-area:fullscreen .controls-bar,
+.map-area:-webkit-full-screen .controls-bar {
+    max-width: 100%;
+    padding: 6px 16px;
+    justify-content: center;
+}
+
+.map-area:fullscreen .meeting-panel,
+.map-area:-webkit-full-screen .meeting-panel {
+    position: fixed;
+    bottom: 90px;
+    right: 24px;
+    width: 420px;
+    max-height: 60vh;
 }
 
 #game-map {
@@ -276,22 +338,78 @@ main {
     background: #1a4a8a;
 }
 
-/* --- Meeting Panel --- */
+/* --- Chat Toggle Button --- */
+.chat-toggle-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 50;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #e67e22;
+    color: #fff;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    transition: background 0.15s, transform 0.15s;
+}
+
+.chat-toggle-btn:hover {
+    background: #d35400;
+    transform: scale(1.1);
+}
+
+.chat-toggle-btn.has-chat {
+    animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+    50% { box-shadow: 0 4px 20px rgba(230, 126, 34, 0.6); }
+}
+
+/* --- Meeting Panel (overlay style) --- */
 .meeting-panel {
-    max-width: 980px;
-    margin-top: 12px;
+    position: fixed;
+    bottom: 90px;
+    right: 24px;
+    width: 420px;
+    max-height: 60vh;
     background: #16213e;
     border: 2px solid #e67e22;
-    border-radius: 8px;
+    border-radius: 12px;
     padding: 16px;
-    max-height: 500px;
     overflow-y: auto;
+    z-index: 49;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.meeting-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .meeting-header h3 {
     color: #e67e22;
     font-size: 1rem;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
+}
+
+.chat-close-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.chat-close-btn:hover {
+    color: #e94560;
 }
 
 .speech-bubbles {
