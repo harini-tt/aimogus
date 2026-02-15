@@ -119,14 +119,16 @@ class Player:
             text += "No tasks have been assigned yet.\n"
         else:
             for i, task in enumerate(self.tasks):
-                completed = "[completed]" if task.check_completion() else ""
-                text += f"{i+1}. {task} {completed}\n"
-                path = task.find_path(self.location, identity=self.identity)
-                if len(path) > 1:
-                    path = "->".join(path)
+                if task.check_completion():
+                    text += f"{i+1}. {task} [completed]\n"
                 else:
-                    path = "You are already at the task location."
-                text += f"Path: {path}\n"
+                    text += f"{i+1}. {task}\n"
+                    path = task.find_path(self.location, identity=self.identity)
+                    if len(path) > 1:
+                        path = "->".join(path)
+                    else:
+                        path = "You are already at the task location."
+                    text += f"Path: {path}\n"
         text += "\n"
         return text        
     

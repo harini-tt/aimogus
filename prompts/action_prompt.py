@@ -1,22 +1,15 @@
 """
 Action selection prompt — presented to the LLM each turn so it can choose
 from the currently available actions given the full environment state.
+
+Observations and action history are already present in the conversation as
+individual messages, so they are NOT repeated here.
 """
 
 ACTION_PROMPT = """\
 == CURRENT SITUATION ==
 
 {phase_info}
-
-{location_info}
-
-== OBSERVATIONS ==
-
-{observation_history}
-
-== YOUR RECENT ACTIONS ==
-
-{action_history}
 
 == TASKS ==
 

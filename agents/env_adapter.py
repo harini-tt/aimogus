@@ -18,6 +18,8 @@ from agents.base_agent import BaseAgent
 from agents.openai_agent import OpenAIAgent
 from agents.models import (
     ActionType,
+    EmergencyMeeting,
+    Message,
     Role,
     SystemEvent,
     Action as PydanticAction,
@@ -149,6 +151,12 @@ class EnvAgentAdapter:
         # Build the action-selection prompt from the player's env state
         action_text = self._build_action_prompt()
 
+        # Remove any previous turn_prompt so only the latest one is in context
+        self.agent.context.interactions = [
+            i for i in self.agent.context.interactions
+            if not (isinstance(i, SystemEvent) and i.event_type == "turn_prompt")
+        ]
+
         # Inject as a system event so the LLM sees it in context
         self.agent.add_interaction(
             SystemEvent(
@@ -190,6 +198,40 @@ class EnvAgentAdapter:
         # Fuzzy match to a valid room
         idx = _best_match(response, room_list)
         return room_list[idx]
+
+    def inject_meeting_transcript(
+        self,
+        transcript: list[dict],
+        called_by: str,
+        round_num: int,
+        body_reported: str | None = None,
+    ) -> None:
+        """
+        Inject the full meeting discussion as a single ``EmergencyMeeting``
+        interaction into the agent's context.
+
+        Parameters
+        ----------
+        transcript : list[dict]
+            List of ``{"speaker": name, "content": text}`` dicts.
+        called_by : str
+            Name of the player who triggered the meeting.
+        round_num : int
+            Meeting round number.
+        body_reported : str | None
+            Name of the dead player if a body was reported, else *None*.
+        """
+        messages = [
+            Message(speaker=entry["speaker"], content=entry["content"])
+            for entry in transcript
+        ]
+        meeting = EmergencyMeeting(
+            round=round_num,
+            called_by=called_by,
+            messages=messages,
+            body_reported=body_reported,
+        )
+        self.agent.add_interaction(meeting)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -242,23 +284,20 @@ class EnvAgentAdapter:
         self._synced_action_count = len(acts)
 
     def _build_action_prompt(self) -> str:
-        """Build the full action prompt from the player's env state."""
-        # Phase info
+        """Build the action prompt from the player's env state.
+
+        Observations and action history are already tracked as individual
+        messages in the agent's context, so they are NOT duplicated here.
+        """
+        # Phase / location header
         phase_info = self.player.location_info_prompt() if self.player.location_info else ""
-        # Observation history
-        obs_text = self.player.observation_history_prompt()
-        # Action history
-        act_text = self.player.action_history_prompt()
-        # Tasks
+        # Tasks (only incomplete ones get paths)
         tasks_text = self.player.tasks_prompt()
         # Available actions
         actions_text = self.player.available_actions_prompt()
 
         return ACTION_PROMPT.format(
             phase_info=phase_info,
-            location_info="",  # already included in phase_info
-            observation_history=obs_text,
-            action_history=act_text,
             tasks_info=tasks_text,
             available_actions=actions_text,
         )

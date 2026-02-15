@@ -60,8 +60,8 @@ CUSTOM_MODEL_LIST: list[dict] = [
     {"provider": "openrouter",  "model": "deepseek/deepseek-chat"},
     {"provider": "openrouter",      "model": "z-ai/glm-5"},
     # --- Uncomment the lines below for 7-player games ---
-    # {"provider": "openrouter",  "model": "google/gemini-2.0-flash-001"},
-    # {"provider": "openai",      "model": "gpt-4o-mini"},
+    {"provider": "openrouter",  "model": "google/gemini-3-flash-preview"},
+    {"provider": "openrouter",      "model": "moonshotai/kimi-k2.5"},
 ]
 
 
@@ -79,8 +79,8 @@ def _ensure_map_image(assets_dir: str) -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run an Among Us AI agent game.")
     parser.add_argument(
-        "--players", type=int, choices=[5, 7], default=5,
-        help="Number of players: 5 or 7 (default: 5)",
+        "--players", type=int, choices=[5, 7], default=7,
+        help="Number of players: 5 or 7 (default: 7)",
     )
     parser.add_argument(
         "--no-ui", action="store_true",
