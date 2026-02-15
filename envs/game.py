@@ -278,26 +278,46 @@ class AmongUs:
         # Move all players to the Cafeteria
         for player in self.players:
             player.location = "Cafeteria"
-            
+
         self.update_map()
 
         # Shared transcript — collects all speeches across discussion rounds
         meeting_transcript: list[dict] = []
         meeting_round = self.game_config["discussion_rounds"] - self.discussion_rounds_left
 
-        # Discussion
+        # Discussion — each round is parallelized across all agents
         for rnd in range(self.game_config["discussion_rounds"]):
             print("Discussion round", rnd + 1)
-            for agent in self.agents:
-                self.agent_step(agent)
-                # If the agent just spoke, capture it into the transcript
-                last_action = agent.player.action_history[-1]["action"] if agent.player.action_history else None
-                if last_action is not None and last_action.name == "SPEAK":
+
+            # 1. Compute available actions for everyone
+            self.check_actions()
+
+            # 2. All agents choose their speech in parallel
+            choices = [None] * len(self.agents)
+            with ThreadPoolExecutor(max_workers=len(self.agents)) as executor:
+                future_to_idx = {
+                    executor.submit(self._agent_choose, agent): idx
+                    for idx, agent in enumerate(self.agents)
+                }
+                for future in as_completed(future_to_idx):
+                    idx = future_to_idx[future]
+                    choices[idx] = future.result()
+
+            # 3. Apply all speech actions sequentially and collect transcript
+            for agent, choice in zip(self.agents, choices):
+                if choice is None:
+                    continue
+                action, obs_loc = choice
+                self.record_activity(agent.player, action)
+                agent.player.make_action(self, action, obs_loc)
+                if action.name == "SPEAK":
                     meeting_transcript.append({
                         "speaker": agent.player.name,
-                        "content": last_action.message,
+                        "content": action.message,
                     })
+
             self.discussion_rounds_left -= 1
+            self.update_map()
 
         # Inject the full meeting transcript into every agent's context
         # so they can reference it when voting.
@@ -309,10 +329,26 @@ class AmongUs:
                 round_num=meeting_round,
             )
 
-        # Voting
+        # Voting — also parallelized
+        self.check_actions()
         self.vote_info_one_round = {}
-        for agent in self.agents:
-            self.agent_step(agent)              
+        choices = [None] * len(self.agents)
+        with ThreadPoolExecutor(max_workers=len(self.agents)) as executor:
+            future_to_idx = {
+                executor.submit(self._agent_choose, agent): idx
+                for idx, agent in enumerate(self.agents)
+            }
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                choices[idx] = future.result()
+
+        for agent, choice in zip(self.agents, choices):
+            if choice is None:
+                continue
+            action, obs_loc = choice
+            self.record_activity(agent.player, action)
+            agent.player.make_action(self, action, obs_loc)
+
         # Vote out
         self.voteout()
         self.update_map()
@@ -328,7 +364,9 @@ class AmongUs:
         print(self.vote_info_one_round)
         print(self.votes)
 
-        # Determine outcome — if everyone skipped, self.votes is empty
+        # Count skip votes and determine outcome
+        skip_count = sum(1 for v in self.vote_info_one_round.values() if v == "skip")
+
         if self.votes:
             max_votes = max(self.votes.values())
             players_with_max_votes = [
@@ -336,9 +374,10 @@ class AmongUs:
                 if votes == max_votes
             ]
         else:
+            max_votes = 0
             players_with_max_votes = []
 
-        if len(players_with_max_votes) == 1:
+        if len(players_with_max_votes) == 1 and max_votes > skip_count:
             player = players_with_max_votes[0]
             player.is_alive = False
             import_event = {"timestep": self.timestep,
