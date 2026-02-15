@@ -13,6 +13,49 @@
     <main>
         <div class="map-area" id="map-area">
             <button id="btn-fullscreen" class="fullscreen-btn" title="Toggle fullscreen">&#x26F6;</button>
+            <div id="walkway-editor" class="walkway-editor hidden" aria-label="Walkway editor">
+                <div class="walkway-editor-row">
+                    <button id="btn-edit-walkways" class="walkway-editor-btn" title="Toggle walkway editor (E)">Edit walkways</button>
+                    <span class="walkway-editor-coords" id="walkway-editor-coords">(x, y)</span>
+                </div>
+
+                <div class="walkway-editor-row">
+                    <label class="walkway-editor-label" for="walkway-editor-tool">Tool</label>
+                    <select id="walkway-editor-tool" class="walkway-editor-select">
+                        <option value="addNode">Add node</option>
+                        <option value="addEdge">Add edge</option>
+                        <option value="selectMove">Select/drag</option>
+                        <option value="setAnchor">Set room anchor</option>
+                    </select>
+                </div>
+
+                <div class="walkway-editor-row">
+                    <label class="walkway-editor-label" for="walkway-editor-room">Room</label>
+                    <select id="walkway-editor-room" class="walkway-editor-select"></select>
+                </div>
+
+                <div class="walkway-editor-row walkway-editor-actions">
+                    <button id="btn-walkway-download" class="walkway-editor-btn" title="Download walkway JSON">Download</button>
+                    <label class="walkway-editor-btn walkway-editor-file">
+                        Load<input id="walkway-editor-file" type="file" accept="application/json">
+                    </label>
+                </div>
+
+                <div class="walkway-editor-row walkway-editor-toggles">
+                    <label class="walkway-editor-toggle"><input id="walkway-toggle-graph" type="checkbox" checked> Show graph</label>
+                    <label class="walkway-editor-toggle"><input id="walkway-toggle-anchors" type="checkbox" checked> Show anchors</label>
+                    <label class="walkway-editor-toggle"><input id="walkway-toggle-preview" type="checkbox"> Preview path</label>
+                    <label class="walkway-editor-toggle"><input id="walkway-toggle-magnifier" type="checkbox"> Magnifier</label>
+                </div>
+
+                <div class="walkway-editor-row hidden" id="walkway-preview-row">
+                    <label class="walkway-editor-label" for="walkway-editor-room-to">To</label>
+                    <select id="walkway-editor-room-to" class="walkway-editor-select"></select>
+                </div>
+
+                <canvas id="walkway-magnifier" class="walkway-magnifier hidden" width="180" height="180"></canvas>
+                <div class="walkway-editor-hint" id="walkway-editor-hint"></div>
+            </div>
             <canvas id="game-map" width="980" height="561"></canvas>
 
             <div class="task-progress-container">
