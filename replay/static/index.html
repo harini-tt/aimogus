@@ -3,19 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Among Us Replay Viewer</title>
+    <title>Replay Viewer</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <header>
-        <h1>Among Us Replay Viewer</h1>
-        <div class="header-controls">
-            <select id="game-selector">
-                <option value="">-- Select a game log --</option>
-            </select>
-            <span id="game-result" class="game-result hidden"></span>
-        </div>
-    </header>
 
     <div id="player-roster" class="player-roster hidden"></div>
 
@@ -24,16 +15,14 @@
             <button id="btn-fullscreen" class="fullscreen-btn" title="Toggle fullscreen">&#x26F6;</button>
             <canvas id="game-map" width="980" height="561"></canvas>
 
-            <!-- Task progress bar -->
             <div class="task-progress-container">
-                <div class="task-progress-label">Task Progress</div>
+                <span class="task-progress-label">Tasks</span>
                 <div class="task-progress-bar">
                     <div id="task-progress-fill" class="task-progress-fill"></div>
                 </div>
                 <span id="task-progress-text" class="task-progress-text">0%</span>
             </div>
 
-            <!-- Playback controls -->
             <div class="controls-bar">
                 <div class="controls-buttons">
                     <button id="btn-start" title="Jump to start">|&lt;</button>
@@ -46,14 +35,13 @@
                 </div>
                 <div class="timeline-container">
                     <input type="range" id="timeline" min="0" max="0" value="0">
-                    <div id="timeline-markers"></div>
                 </div>
                 <div class="turn-info">
                     <span id="turn-display">T0</span>
                     <span id="phase-display" class="phase-badge">--</span>
+                    <span id="game-result" class="game-result hidden"></span>
                 </div>
                 <div class="speed-control">
-                    <span>Speed:</span>
                     <button class="speed-btn" data-speed="0.5">0.5x</button>
                     <button class="speed-btn active" data-speed="1">1x</button>
                     <button class="speed-btn" data-speed="2">2x</button>
@@ -61,7 +49,6 @@
                 </div>
             </div>
 
-            <!-- Meeting chat overlay (toggled via button) -->
             <div id="meeting-panel" class="meeting-panel hidden">
                 <div class="meeting-header">
                     <h3 id="meeting-title">Emergency Meeting</h3>
@@ -71,7 +58,6 @@
                 <div id="vote-results" class="vote-results hidden"></div>
             </div>
 
-            <!-- Floating chat toggle -->
             <button id="btn-chat-toggle" class="chat-toggle-btn hidden" title="Toggle meeting chat">&#128172;</button>
         </div>
 
@@ -82,7 +68,7 @@
     </main>
 
     <div id="loading-overlay" class="loading-overlay hidden">
-        <div class="loading-text">Loading game...</div>
+        <div class="loading-text">Loading...</div>
     </div>
 
     <script src="/static/app.js"></script>

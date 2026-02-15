@@ -1,4 +1,3 @@
-/* --- Base & Reset --- */
 * {
     margin: 0;
     padding: 0;
@@ -6,68 +5,18 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #111;
+    color: #ccc;
     min-height: 100vh;
-}
-
-/* --- Header --- */
-header {
-    background: #16213e;
-    padding: 12px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 2px solid #e94560;
-}
-
-header h1 {
-    font-size: 1.3rem;
-    color: #e94560;
-    letter-spacing: 1px;
-}
-
-.header-controls {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-#game-selector {
-    padding: 6px 12px;
-    background: #0f3460;
-    color: #e0e0e0;
-    border: 1px solid #e94560;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    max-width: 400px;
-}
-
-.game-result {
-    font-weight: bold;
-    padding: 4px 12px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-}
-
-.game-result.crewmate-win {
-    background: #27ae60;
-    color: #fff;
-}
-
-.game-result.impostor-win {
-    background: #e94560;
-    color: #fff;
 }
 
 /* --- Player Roster --- */
 .player-roster {
     display: flex;
-    gap: 12px;
-    padding: 8px 24px;
-    background: #16213e;
+    gap: 10px;
+    padding: 8px 16px;
+    background: #1a1a1a;
     border-bottom: 1px solid #333;
     flex-wrap: wrap;
 }
@@ -75,39 +24,37 @@ header h1 {
 .player-chip {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 16px;
-    background: #0f3460;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    background: #222;
     font-size: 0.8rem;
 }
 
 .player-chip.dead {
-    opacity: 0.4;
+    opacity: 0.35;
     text-decoration: line-through;
 }
 
 .player-chip .color-dot {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.3);
 }
 
 .player-chip .role-badge {
     font-size: 0.7rem;
-    padding: 1px 6px;
-    border-radius: 8px;
-    font-weight: bold;
+    padding: 1px 5px;
+    border-radius: 3px;
 }
 
 .role-badge.crewmate {
-    background: #27ae60;
+    background: #2a5;
     color: #fff;
 }
 
 .role-badge.impostor {
-    background: #e94560;
+    background: #c44;
     color: #fff;
 }
 
@@ -115,7 +62,7 @@ header h1 {
 main {
     display: flex;
     gap: 0;
-    padding: 16px;
+    padding: 12px;
     max-width: 1400px;
     margin: 0 auto;
 }
@@ -129,27 +76,27 @@ main {
 /* --- Fullscreen Button --- */
 .fullscreen-btn {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: 6px;
+    right: 6px;
     z-index: 10;
-    background: rgba(0, 0, 0, 0.6);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: 1.1rem;
+    background: rgba(0, 0, 0, 0.5);
+    color: #aaa;
+    border: 1px solid #555;
+    border-radius: 3px;
+    padding: 4px 8px;
+    font-size: 1rem;
     cursor: pointer;
-    transition: background 0.15s;
 }
 
 .fullscreen-btn:hover {
-    background: rgba(233, 69, 96, 0.8);
+    color: #fff;
+    background: rgba(0, 0, 0, 0.7);
 }
 
 /* --- Fullscreen Mode --- */
 .map-area:fullscreen,
 .map-area:-webkit-full-screen {
-    background: #0a0a1a;
+    background: #000;
     display: flex;
     flex-direction: column;
     padding: 0;
@@ -183,7 +130,7 @@ main {
     position: fixed;
     bottom: 90px;
     right: 24px;
-    width: 420px;
+    width: 400px;
     max-height: 60vh;
 }
 
@@ -192,50 +139,50 @@ main {
     width: 100%;
     max-width: 980px;
     height: auto;
-    border: 2px solid #333;
-    border-radius: 8px;
-    background: #111;
+    border: 1px solid #333;
+    border-radius: 4px;
+    background: #000;
 }
 
 /* --- Task Progress --- */
 .task-progress-container {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 0;
+    gap: 8px;
+    padding: 6px 0;
     max-width: 980px;
 }
 
 .task-progress-label {
-    font-size: 0.8rem;
-    color: #aaa;
+    font-size: 0.75rem;
+    color: #888;
     white-space: nowrap;
 }
 
 .task-progress-bar {
     flex: 1;
-    height: 16px;
-    background: #333;
-    border-radius: 8px;
+    height: 10px;
+    background: #222;
+    border-radius: 5px;
     overflow: hidden;
 }
 
 .task-progress-fill {
     height: 100%;
-    background: #27ae60;
+    background: #2a5;
     width: 0%;
     transition: width 0.3s ease;
-    border-radius: 8px;
+    border-radius: 5px;
 }
 
 .task-progress-fill.game-over {
-    background: #e94560;
+    background: #c44;
 }
 
 .task-progress-text {
-    font-size: 0.8rem;
-    color: #aaa;
-    min-width: 40px;
+    font-size: 0.75rem;
+    color: #888;
+    min-width: 32px;
     text-align: right;
 }
 
@@ -243,147 +190,152 @@ main {
 .controls-bar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 0;
+    gap: 10px;
+    padding: 8px 0;
     flex-wrap: wrap;
     max-width: 980px;
 }
 
 .controls-buttons {
     display: flex;
-    gap: 4px;
+    gap: 3px;
 }
 
 .controls-buttons button {
-    padding: 6px 10px;
-    background: #0f3460;
-    color: #e0e0e0;
+    padding: 5px 9px;
+    background: #222;
+    color: #ccc;
     border: 1px solid #444;
-    border-radius: 4px;
+    border-radius: 3px;
     cursor: pointer;
-    font-size: 0.85rem;
-    min-width: 36px;
-    transition: background 0.15s;
+    font-size: 0.8rem;
+    min-width: 32px;
 }
 
 .controls-buttons button:hover {
-    background: #1a4a8a;
+    background: #333;
 }
 
 .controls-buttons button:active {
-    background: #e94560;
+    background: #444;
 }
 
 .timeline-container {
     flex: 1;
-    min-width: 150px;
-    position: relative;
+    min-width: 120px;
 }
 
 #timeline {
     width: 100%;
     cursor: pointer;
-    accent-color: #e94560;
+    accent-color: #888;
 }
 
 .turn-info {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    color: #aaa;
 }
 
 .phase-badge {
-    padding: 2px 8px;
-    border-radius: 8px;
-    font-size: 0.75rem;
-    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
 }
 
 .phase-badge.task {
-    background: #2980b9;
-    color: #fff;
+    background: #234;
+    color: #8af;
 }
 
 .phase-badge.meeting {
-    background: #e67e22;
+    background: #332;
+    color: #da6;
+}
+
+.game-result {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.game-result.crewmate-win {
+    background: #2a5;
+    color: #fff;
+}
+
+.game-result.impostor-win {
+    background: #c44;
     color: #fff;
 }
 
 .speed-control {
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-size: 0.8rem;
-    color: #aaa;
+    gap: 3px;
+    font-size: 0.75rem;
+    color: #888;
 }
 
 .speed-btn {
-    padding: 3px 8px;
-    background: #0f3460;
-    color: #e0e0e0;
+    padding: 3px 7px;
+    background: #222;
+    color: #aaa;
     border: 1px solid #444;
-    border-radius: 4px;
+    border-radius: 3px;
     cursor: pointer;
-    font-size: 0.75rem;
-    transition: background 0.15s;
+    font-size: 0.7rem;
 }
 
 .speed-btn.active {
-    background: #e94560;
-    border-color: #e94560;
+    background: #444;
+    color: #fff;
 }
 
 .speed-btn:hover {
-    background: #1a4a8a;
+    background: #333;
 }
 
 /* --- Chat Toggle Button --- */
 .chat-toggle-btn {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    bottom: 20px;
+    right: 20px;
     z-index: 50;
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
-    background: #e67e22;
-    color: #fff;
-    border: none;
-    font-size: 1.5rem;
+    background: #333;
+    color: #ccc;
+    border: 1px solid #555;
+    font-size: 1.3rem;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    transition: background 0.15s, transform 0.15s;
 }
 
 .chat-toggle-btn:hover {
-    background: #d35400;
-    transform: scale(1.1);
+    background: #444;
 }
 
 .chat-toggle-btn.has-chat {
-    animation: pulse-glow 2s infinite;
+    background: #553;
+    border-color: #775;
 }
 
-@keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
-    50% { box-shadow: 0 4px 20px rgba(230, 126, 34, 0.6); }
-}
-
-/* --- Meeting Panel (overlay style) --- */
+/* --- Meeting Panel --- */
 .meeting-panel {
     position: fixed;
-    bottom: 90px;
-    right: 24px;
-    width: 420px;
+    bottom: 80px;
+    right: 20px;
+    width: 400px;
     max-height: 60vh;
-    background: #16213e;
-    border: 2px solid #e67e22;
-    border-radius: 12px;
-    padding: 16px;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 12px;
     overflow-y: auto;
     z-index: 49;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
 }
 
 .meeting-header {
@@ -393,152 +345,150 @@ main {
 }
 
 .meeting-header h3 {
-    color: #e67e22;
-    font-size: 1rem;
-    margin-bottom: 8px;
+    color: #da6;
+    font-size: 0.9rem;
+    margin-bottom: 6px;
 }
 
 .chat-close-btn {
     background: none;
     border: none;
-    color: #aaa;
-    font-size: 1.4rem;
+    color: #888;
+    font-size: 1.2rem;
     cursor: pointer;
     padding: 0 4px;
     line-height: 1;
 }
 
 .chat-close-btn:hover {
-    color: #e94560;
+    color: #fff;
 }
 
 .speech-bubbles {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .speech-bubble {
-    background: #1a1a2e;
-    border: 1px solid #444;
-    border-radius: 12px;
-    padding: 10px 14px;
-    max-width: 700px;
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 8px 10px;
 }
 
 .speech-bubble .speaker-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 4px;
+    gap: 6px;
+    margin-bottom: 3px;
 }
 
 .speech-bubble .speaker-color {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.3);
 }
 
 .speech-bubble .speaker-name {
     font-weight: bold;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
 }
 
 .speech-bubble .speech-text {
-    font-size: 0.85rem;
-    color: #ccc;
+    font-size: 0.8rem;
+    color: #aaa;
     line-height: 1.4;
 }
 
 .round-divider {
-    color: #888;
-    font-size: 0.75rem;
+    color: #666;
+    font-size: 0.7rem;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: 6px 0;
+    letter-spacing: 0.5px;
+    padding: 4px 0;
     border-bottom: 1px solid #333;
     margin-bottom: 4px;
 }
 
 /* --- Vote Results --- */
 .vote-results {
-    margin-top: 12px;
-    padding: 12px;
-    background: #0f3460;
-    border-radius: 8px;
+    margin-top: 8px;
+    padding: 8px;
+    background: #222;
+    border-radius: 4px;
 }
 
 .vote-results h4 {
-    color: #e67e22;
-    font-size: 0.9rem;
-    margin-bottom: 8px;
+    color: #da6;
+    font-size: 0.8rem;
+    margin-bottom: 6px;
 }
 
 .vote-entry {
-    font-size: 0.8rem;
-    padding: 2px 0;
-    color: #ccc;
+    font-size: 0.75rem;
+    padding: 1px 0;
+    color: #aaa;
 }
 
 .vote-result-line {
-    margin-top: 8px;
+    margin-top: 6px;
     font-weight: bold;
-    color: #e94560;
-    font-size: 0.9rem;
+    color: #c44;
+    font-size: 0.8rem;
 }
 
 /* --- Activity Sidebar --- */
 .activity-sidebar {
-    width: 320px;
+    width: 300px;
     flex-shrink: 0;
-    margin-left: 16px;
+    margin-left: 12px;
 }
 
 .activity-sidebar h3 {
-    font-size: 1rem;
-    color: #e94560;
-    margin-bottom: 8px;
-    padding-bottom: 6px;
+    font-size: 0.9rem;
+    color: #aaa;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
     border-bottom: 1px solid #333;
 }
 
 .activity-log {
-    height: calc(100vh - 200px);
+    height: calc(100vh - 160px);
     overflow-y: auto;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     line-height: 1.5;
 }
 
 .log-entry {
-    padding: 3px 6px;
-    border-radius: 3px;
-    margin-bottom: 2px;
+    padding: 2px 4px;
+    border-radius: 2px;
+    margin-bottom: 1px;
 }
 
 .log-entry.current-turn {
-    background: rgba(233, 69, 96, 0.15);
+    background: rgba(255, 255, 255, 0.05);
 }
 
-.log-entry.move { color: #95a5a6; }
-.log-entry.complete_task { color: #27ae60; }
-.log-entry.fake_task { color: #f39c12; }
-.log-entry.kill { color: #e94560; font-weight: bold; }
-.log-entry.vent { color: #8e44ad; }
-.log-entry.speak { color: #e67e22; }
-.log-entry.vote { color: #3498db; }
-.log-entry.skip_vote { color: #7f8c8d; }
-.log-entry.report_body { color: #e94560; }
-.log-entry.call_meeting { color: #e67e22; font-weight: bold; }
-.log-entry.view_monitor { color: #1abc9c; }
-.log-entry.voteout { color: #e94560; font-weight: bold; }
-.log-entry.game-over { color: #f1c40f; font-weight: bold; font-size: 0.9rem; }
+.log-entry.move { color: #888; }
+.log-entry.complete_task { color: #6b6; }
+.log-entry.fake_task { color: #ba5; }
+.log-entry.kill { color: #c44; font-weight: bold; }
+.log-entry.vent { color: #a6c; }
+.log-entry.speak { color: #da6; }
+.log-entry.vote { color: #68b; }
+.log-entry.skip_vote { color: #777; }
+.log-entry.report_body { color: #c44; }
+.log-entry.call_meeting { color: #da6; font-weight: bold; }
+.log-entry.view_monitor { color: #6aa; }
+.log-entry.voteout { color: #c44; font-weight: bold; }
+.log-entry.game-over { color: #cc6; font-weight: bold; font-size: 0.85rem; }
 
 /* --- Loading Overlay --- */
 .loading-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.7);
+    background: rgba(0,0,0,0.8);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -546,29 +496,16 @@ main {
 }
 
 .loading-text {
-    color: #e94560;
-    font-size: 1.5rem;
+    color: #aaa;
+    font-size: 1.2rem;
 }
 
-/* --- Utility --- */
 .hidden {
     display: none !important;
 }
 
-/* --- Scrollbar Styling --- */
-::-webkit-scrollbar {
-    width: 6px;
-}
-
-::-webkit-scrollbar-track {
-    background: #1a1a2e;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #444;
-    border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #666;
-}
+/* --- Scrollbar --- */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #111; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }

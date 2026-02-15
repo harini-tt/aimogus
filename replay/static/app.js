@@ -66,25 +66,15 @@ const GameState = {
 // Initialization
 // ============================================================
 async function init() {
-    await loadGameList();
     setupControls();
     setupKeyboardShortcuts();
     drawEmptyCanvas();
-}
-
-async function loadGameList() {
+    // Auto-load the most recent game
     const res = await fetch('/api/games');
     const games = await res.json();
-    const selector = document.getElementById('game-selector');
-    games.forEach(name => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
-        selector.appendChild(opt);
-    });
-    selector.addEventListener('change', () => {
-        if (selector.value) loadGame(selector.value);
-    });
+    if (games.length > 0) {
+        loadGame(games[0]);
+    }
 }
 
 async function loadGame(filename) {
