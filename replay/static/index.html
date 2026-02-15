@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Among Us Replay Viewer</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>Among Us Replay Viewer</h1>
+        <div class="header-controls">
+            <select id="game-selector">
+                <option value="">-- Select a game log --</option>
+            </select>
+            <span id="game-result" class="game-result hidden"></span>
+        </div>
+    </header>
+
+    <div id="player-roster" class="player-roster hidden"></div>
+
+    <main>
+        <div class="map-area">
+            <canvas id="game-map" width="980" height="561"></canvas>
+
+            <!-- Task progress bar -->
+            <div class="task-progress-container">
+                <div class="task-progress-label">Task Progress</div>
+                <div class="task-progress-bar">
+                    <div id="task-progress-fill" class="task-progress-fill"></div>
+                </div>
+                <span id="task-progress-text" class="task-progress-text">0%</span>
+            </div>
+
+            <!-- Playback controls -->
+            <div class="controls-bar">
+                <div class="controls-buttons">
+                    <button id="btn-start" title="Jump to start">|&lt;</button>
+                    <button id="btn-prev-turn" title="Previous turn">&lt;&lt;</button>
+                    <button id="btn-prev" title="Previous event">&lt;</button>
+                    <button id="btn-play" title="Play/Pause">&#9654;</button>
+                    <button id="btn-next" title="Next event">&gt;</button>
+                    <button id="btn-next-turn" title="Next turn">&gt;&gt;</button>
+                    <button id="btn-end" title="Jump to end">&gt;|</button>
+                </div>
+                <div class="timeline-container">
+                    <input type="range" id="timeline" min="0" max="0" value="0">
+                    <div id="timeline-markers"></div>
+                </div>
+                <div class="turn-info">
+                    <span id="turn-display">T0</span>
+                    <span id="phase-display" class="phase-badge">--</span>
+                </div>
+                <div class="speed-control">
+                    <span>Speed:</span>
+                    <button class="speed-btn" data-speed="0.5">0.5x</button>
+                    <button class="speed-btn active" data-speed="1">1x</button>
+                    <button class="speed-btn" data-speed="2">2x</button>
+                    <button class="speed-btn" data-speed="4">4x</button>
+                </div>
+            </div>
+
+            <!-- Meeting panel (shown during meeting phases) -->
+            <div id="meeting-panel" class="meeting-panel hidden">
+                <div class="meeting-header">
+                    <h3 id="meeting-title">Emergency Meeting</h3>
+                </div>
+                <div id="speech-bubbles" class="speech-bubbles"></div>
+                <div id="vote-results" class="vote-results hidden"></div>
+            </div>
+        </div>
+
+        <aside class="activity-sidebar">
+            <h3>Activity Log</h3>
+            <div id="activity-log" class="activity-log"></div>
+        </aside>
+    </main>
+
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-text">Loading game...</div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

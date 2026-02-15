@@ -1,0 +1,456 @@
+/* --- Base & Reset --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    min-height: 100vh;
+}
+
+/* --- Header --- */
+header {
+    background: #16213e;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid #e94560;
+}
+
+header h1 {
+    font-size: 1.3rem;
+    color: #e94560;
+    letter-spacing: 1px;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+#game-selector {
+    padding: 6px 12px;
+    background: #0f3460;
+    color: #e0e0e0;
+    border: 1px solid #e94560;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    max-width: 400px;
+}
+
+.game-result {
+    font-weight: bold;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.game-result.crewmate-win {
+    background: #27ae60;
+    color: #fff;
+}
+
+.game-result.impostor-win {
+    background: #e94560;
+    color: #fff;
+}
+
+/* --- Player Roster --- */
+.player-roster {
+    display: flex;
+    gap: 12px;
+    padding: 8px 24px;
+    background: #16213e;
+    border-bottom: 1px solid #333;
+    flex-wrap: wrap;
+}
+
+.player-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 16px;
+    background: #0f3460;
+    font-size: 0.8rem;
+}
+
+.player-chip.dead {
+    opacity: 0.4;
+    text-decoration: line-through;
+}
+
+.player-chip .color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.player-chip .role-badge {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
+.role-badge.crewmate {
+    background: #27ae60;
+    color: #fff;
+}
+
+.role-badge.impostor {
+    background: #e94560;
+    color: #fff;
+}
+
+/* --- Main Layout --- */
+main {
+    display: flex;
+    gap: 0;
+    padding: 16px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.map-area {
+    flex: 1;
+    min-width: 0;
+}
+
+#game-map {
+    display: block;
+    width: 100%;
+    max-width: 980px;
+    height: auto;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background: #111;
+}
+
+/* --- Task Progress --- */
+.task-progress-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    max-width: 980px;
+}
+
+.task-progress-label {
+    font-size: 0.8rem;
+    color: #aaa;
+    white-space: nowrap;
+}
+
+.task-progress-bar {
+    flex: 1;
+    height: 16px;
+    background: #333;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.task-progress-fill {
+    height: 100%;
+    background: #27ae60;
+    width: 0%;
+    transition: width 0.3s ease;
+    border-radius: 8px;
+}
+
+.task-progress-fill.game-over {
+    background: #e94560;
+}
+
+.task-progress-text {
+    font-size: 0.8rem;
+    color: #aaa;
+    min-width: 40px;
+    text-align: right;
+}
+
+/* --- Controls Bar --- */
+.controls-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    flex-wrap: wrap;
+    max-width: 980px;
+}
+
+.controls-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.controls-buttons button {
+    padding: 6px 10px;
+    background: #0f3460;
+    color: #e0e0e0;
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    min-width: 36px;
+    transition: background 0.15s;
+}
+
+.controls-buttons button:hover {
+    background: #1a4a8a;
+}
+
+.controls-buttons button:active {
+    background: #e94560;
+}
+
+.timeline-container {
+    flex: 1;
+    min-width: 150px;
+    position: relative;
+}
+
+#timeline {
+    width: 100%;
+    cursor: pointer;
+    accent-color: #e94560;
+}
+
+.turn-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+}
+
+.phase-badge {
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.phase-badge.task {
+    background: #2980b9;
+    color: #fff;
+}
+
+.phase-badge.meeting {
+    background: #e67e22;
+    color: #fff;
+}
+
+.speed-control {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+.speed-btn {
+    padding: 3px 8px;
+    background: #0f3460;
+    color: #e0e0e0;
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: background 0.15s;
+}
+
+.speed-btn.active {
+    background: #e94560;
+    border-color: #e94560;
+}
+
+.speed-btn:hover {
+    background: #1a4a8a;
+}
+
+/* --- Meeting Panel --- */
+.meeting-panel {
+    max-width: 980px;
+    margin-top: 12px;
+    background: #16213e;
+    border: 2px solid #e67e22;
+    border-radius: 8px;
+    padding: 16px;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.meeting-header h3 {
+    color: #e67e22;
+    font-size: 1rem;
+    margin-bottom: 12px;
+}
+
+.speech-bubbles {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.speech-bubble {
+    background: #1a1a2e;
+    border: 1px solid #444;
+    border-radius: 12px;
+    padding: 10px 14px;
+    max-width: 700px;
+}
+
+.speech-bubble .speaker-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.speech-bubble .speaker-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.speech-bubble .speaker-name {
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
+.speech-bubble .speech-text {
+    font-size: 0.85rem;
+    color: #ccc;
+    line-height: 1.4;
+}
+
+.round-divider {
+    color: #888;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 6px 0;
+    border-bottom: 1px solid #333;
+    margin-bottom: 4px;
+}
+
+/* --- Vote Results --- */
+.vote-results {
+    margin-top: 12px;
+    padding: 12px;
+    background: #0f3460;
+    border-radius: 8px;
+}
+
+.vote-results h4 {
+    color: #e67e22;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.vote-entry {
+    font-size: 0.8rem;
+    padding: 2px 0;
+    color: #ccc;
+}
+
+.vote-result-line {
+    margin-top: 8px;
+    font-weight: bold;
+    color: #e94560;
+    font-size: 0.9rem;
+}
+
+/* --- Activity Sidebar --- */
+.activity-sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    margin-left: 16px;
+}
+
+.activity-sidebar h3 {
+    font-size: 1rem;
+    color: #e94560;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #333;
+}
+
+.activity-log {
+    height: calc(100vh - 200px);
+    overflow-y: auto;
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
+
+.log-entry {
+    padding: 3px 6px;
+    border-radius: 3px;
+    margin-bottom: 2px;
+}
+
+.log-entry.current-turn {
+    background: rgba(233, 69, 96, 0.15);
+}
+
+.log-entry.move { color: #95a5a6; }
+.log-entry.complete_task { color: #27ae60; }
+.log-entry.fake_task { color: #f39c12; }
+.log-entry.kill { color: #e94560; font-weight: bold; }
+.log-entry.vent { color: #8e44ad; }
+.log-entry.speak { color: #e67e22; }
+.log-entry.vote { color: #3498db; }
+.log-entry.skip_vote { color: #7f8c8d; }
+.log-entry.report_body { color: #e94560; }
+.log-entry.call_meeting { color: #e67e22; font-weight: bold; }
+.log-entry.view_monitor { color: #1abc9c; }
+.log-entry.voteout { color: #e94560; font-weight: bold; }
+.log-entry.game-over { color: #f1c40f; font-weight: bold; font-size: 0.9rem; }
+
+/* --- Loading Overlay --- */
+.loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.loading-text {
+    color: #e94560;
+    font-size: 1.5rem;
+}
+
+/* --- Utility --- */
+.hidden {
+    display: none !important;
+}
+
+/* --- Scrollbar Styling --- */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a1a2e;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
