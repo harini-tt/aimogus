@@ -61,6 +61,7 @@ class AmongUs:
         self.game_config = game_config
         self.model_configs = model_configs
         self.all_phases = ["meeting", "task"]
+        self.game_config_block = self._format_game_config_block(game_config)
         
         
         
@@ -115,10 +116,20 @@ class AmongUs:
     def initialize_agents(self):
         tools = [GetBestPath(metadata={'network': self.map.ship_map})]
         player_names = [f"{p.name}: {p.color}" for p in self.players]
+        impostor_names = [p.name for p in self.players if p.identity == "Impostor"]
         self.agents = []
         for idx, player in enumerate(self.players):
             agent = self._build_agent(player, idx, player_names)
-            self.agents.append(EnvAgentAdapter(player, tools, agent=agent))
+            known_impostors = impostor_names if player.identity == "Impostor" else []
+            self.agents.append(
+                EnvAgentAdapter(
+                    player,
+                    tools,
+                    agent=agent,
+                    game_config_block=self.game_config_block,
+                    known_impostors=known_impostors,
+                )
+            )
 
     def _build_agent(self, player, idx: int, player_names: list[str]):
         """Create the appropriate BaseAgent subclass for *player*."""
@@ -140,6 +151,8 @@ class AmongUs:
                 assigned_tasks=task_names,
                 player_names=player_names,
                 model=model,
+                game_config_block=self.game_config_block,
+                known_impostors=impostor_names if role == Role.IMPOSTOR else [],
             )
         else:
             return OpenAIAgent(
@@ -148,7 +161,22 @@ class AmongUs:
                 assigned_tasks=task_names,
                 player_names=player_names,
                 model=model,
+                game_config_block=self.game_config_block,
+                known_impostors=impostor_names if role == Role.IMPOSTOR else [],
             )
+    
+    def _format_game_config_block(self, cfg: dict) -> str:
+        """Render a concise, factual game-config block for prompts."""
+        return (
+            f"- Players: {cfg.get('num_players', '?')} "
+            f"(Impostors: {cfg.get('num_impostors', '?')})\n"
+            f"- Tasks per crewmate: common {cfg.get('num_common_tasks', '?')}, "
+            f"short {cfg.get('num_short_tasks', '?')}, long {cfg.get('num_long_tasks', '?')}\n"
+            f"- Discussion rounds per meeting: {cfg.get('discussion_rounds', '?')}\n"
+            f"- Emergency button uses (shared): {cfg.get('max_num_buttons', '?')}\n"
+            f"- Kill cooldown (impostors): {cfg.get('kill_cooldown', '?')} timesteps\n"
+            f"- Max timesteps: {cfg.get('max_timesteps', '?')}"
+        )
         
     def report_winner(self, winner):
         if winner == 1:

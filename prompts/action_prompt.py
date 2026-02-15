@@ -15,6 +15,13 @@ ACTION_PROMPT = """\
 
 {tasks_info}
 
+== QUICK FACT CHECK (do not answer these, just consider) ==
+- Who is currently in your room (mutual visibility)?
+- What did you see in recent timesteps (players, bodies, paths)?
+- If you are an impostor, what is your kill cooldown right now?
+- Will this action reveal your location (Move/Report/Button) or be seen only if someone shares the room (Vent if empty)?
+- Does this action keep your path consistent with prior sightings?
+
 == AVAILABLE ACTIONS ==
 
 {available_actions}
@@ -30,7 +37,7 @@ ACTION: MOVE from Cafeteria to Admin\
 """
 
 OBSERVATION_LOCATION_PROMPT = """\
-You are viewing the security monitor. Choose a room to observe.
+You are viewing the security monitor. It shows the current occupants of one room; it does not show history, and viewed players are not alerted.
 
 Available rooms:
 {rooms}
