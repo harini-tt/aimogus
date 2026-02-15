@@ -46,6 +46,8 @@ class BaseAgent(ABC):
         role: Role,
         game_instructions: str = "",
         assigned_tasks: list[str] | None = None,
+        game_config_block: str = "",
+        known_impostors: list[str] | None = None,
     ) -> None:
         self.name = name
         self.role = role
@@ -53,6 +55,8 @@ class BaseAgent(ABC):
         self.assigned_tasks: list[str] = assigned_tasks or []
         self.completed_tasks: list[str] = []
         self.context = AgentContext(game_instructions=game_instructions)
+        self.game_config_block = game_config_block or "Not provided."
+        self.known_impostors = known_impostors or []
 
     # ------------------------------------------------------------------
     # Abstract interface — subclasses MUST implement
@@ -151,6 +155,11 @@ class BaseAgent(ABC):
         """
         if self.context.game_instructions:
             return self.context.game_instructions
+        known_impostors_text = (
+            ", ".join(self.known_impostors)
+            if self.role == Role.IMPOSTOR and self.known_impostors
+            else "Hidden (you do not know other roles)"
+        )
         return SYSTEM_PROMPT.format(
             name=self.name,
             role=self.role.value.upper(),
@@ -161,6 +170,8 @@ class BaseAgent(ABC):
                 if self.assigned_tasks
                 else "No tasks assigned."
             ),
+            game_config_block=self.game_config_block,
+            known_impostors=known_impostors_text,
         )
 
     # ------------------------------------------------------------------

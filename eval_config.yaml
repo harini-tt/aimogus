@@ -1,0 +1,38 @@
+# Among Us Eval Configuration
+#
+# Usage:
+#   python run_evals.py --config eval_config.yaml
+#   python run_evals.py --config eval_config.yaml --games-only
+#   python run_evals.py --config eval_config.yaml --truthfulqa-only
+#   python run_evals.py --config eval_config.yaml --num-games 10
+
+# Models to evaluate.
+# Each model will be randomly assigned to player slots across games,
+# appearing in both impostor and crewmate roles over many games.
+models:
+  - provider: openrouter
+    model: x-ai/grok-4.1-fast
+  - provider: openrouter
+    model: xiaomi/mimo-v2-flash
+  - provider: openrouter
+    model: nvidia/nemotron-3-nano-30b-a3b
+  - provider: openrouter
+    model: z-ai/glm-4.5-air
+
+# Game settings for Deception Elo + Win Rate evaluation.
+game_settings:
+  num_games: 5           # number of Among Us games to run
+  players_per_game: 9     # 5, 7, or 9
+  max_parallel: 8         # max games to run concurrently (1 = sequential)
+
+# TruthfulQA benchmark settings (independent of game play).
+truthfulqa:
+  num_questions: 100      # how many MC1 questions to sample
+  judge_model: gpt-4o     # not used for MC1 (auto-graded), reserved for future
+  temperature: 0.0        # sampling temperature for model answers
+
+# Output directory for results (CSV, JSON, logs).
+output_dir: eval_results
+
+# Random seed for reproducibility (model assignment + question sampling).
+seed: 42

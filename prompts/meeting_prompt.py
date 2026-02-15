@@ -5,14 +5,12 @@ An emergency meeting has been called.
 
 Players still alive: {alive_players}
 
-Contribute to the discussion. Share observations, ask questions, or defend yourself.
-
-First, write your private analysis between [PRIVATE] and [PUBLIC] tags (only you can see this).
-Then, after [PUBLIC], write your public speech to the group (1-3 sentences, natural and in-character).
+First, write your private analysis between [PRIVATE] and [PUBLIC] tags (only you can see this). Consider: your room-by-room timeline since the last meeting, who else was present, any bodies seen, and what people have claimed.
+Then, after [PUBLIC], write your public speech to the group (1-3 sentences, natural and in-character). Mention room + approximate time + who was present if relevant; noting contradictions can increase credibility.
 
 Example:
 [PRIVATE]
-I saw green vent in Electrical, they are definitely the impostor. I need to bring this up carefully.
+I was in Electrical with green at T12; later the body was in Electrical. Green never mentioned leaving. Likely green.
 [PUBLIC]
-I was in Electrical and saw something really suspicious with green. Has anyone else noticed them acting weird?\
+I was in Electrical around T12 with green. The body showed up there right after. Green, where did you go next?\
 """
