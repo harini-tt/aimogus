@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 import random
-import threading
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -199,12 +198,14 @@ def run_quick_game_eval(
     ``impostor_games``, ``crewmate_games``, ``impostor_wins``, ``crewmate_wins``.
     """
     from training.game_rollout import run_parallel_games
+    from training.inference_batcher import InferenceBatcher
 
-    lock = threading.Lock()
+    pad_token_id = tokenizer.pad_token_id or tokenizer.eos_token_id
+    batcher = InferenceBatcher(model, pad_token_id=pad_token_id)
     results = run_parallel_games(
         model=model,
         tokenizer=tokenizer,
-        lock=lock,
+        batcher=batcher,
         num_games=num_games,
         game_config=game_config,
         inoculation=inoculation,

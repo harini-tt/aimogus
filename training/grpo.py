@@ -36,7 +36,7 @@ class GRPOConfig:
     batch_size: int = 4
     """Mini-batch size for forward passes."""
 
-    epochs_per_iteration: int = 2
+    epochs_per_iteration: int = 1
     """Number of full passes over the trajectory batch per GRPO iteration."""
 
     max_seq_len: int = 1024

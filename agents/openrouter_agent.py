@@ -71,6 +71,8 @@ class OpenRouterAgent(BaseAgent):
         self.client = openai.OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=os.getenv("OPENROUTER_API_KEY"),
+            timeout=60.0,
+            max_retries=2,
         )
 
     # ------------------------------------------------------------------
@@ -105,20 +107,26 @@ class OpenRouterAgent(BaseAgent):
         """
         messages = self.format_context()
 
-        # logger.info(
-        #     "=== OpenRouter Request [%s] (model=%s) ===\n%s",
-        #     self.name,
-        #     kwargs.get("model", self.model),
-        #     json.dumps(messages, indent=2),
-        # )
+        # Translate HuggingFace-style max_new_tokens to OpenAI-style max_tokens
+        if "max_new_tokens" in kwargs:
+            kwargs.setdefault("max_tokens", kwargs.pop("max_new_tokens"))
 
-        response = self.client.chat.completions.create(
-            model=kwargs.pop("model", self.model),
-            messages=messages,
-            **kwargs,
-        )
-        message = response.choices[0].message
-        completion_text = message.content or ""
+        try:
+            response = self.client.chat.completions.create(
+                model=kwargs.pop("model", self.model),
+                messages=messages,
+                **kwargs,
+            )
+            message = response.choices[0].message
+            completion_text = message.content or ""
+        except (openai.APITimeoutError, openai.APIConnectionError) as exc:
+            logger.warning(
+                "[%s] OpenRouter request failed after retries: %s. "
+                "Returning empty response (agent will use safe default action).",
+                self.name,
+                exc,
+            )
+            return ""
 
         # Some reasoning models (e.g. kimi-k2.5) may place their actual
         # answer in a ``reasoning`` or ``reasoning_content`` attribute

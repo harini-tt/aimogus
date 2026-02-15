@@ -42,9 +42,7 @@ training_image = (
         "pillow",
         "pyyaml",
         "tqdm",
-        # --- Eval deps ---
         "datasets",
-        # --- Logging ---
         "wandb",
     )
     .env({"PYTHONPATH": "/root/project"})

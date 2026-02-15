@@ -163,6 +163,7 @@ class AmongUs:
                 model_instance=cfg.get("model_instance"),
                 tokenizer=cfg.get("tokenizer"),
                 inference_lock=cfg.get("inference_lock"),
+                inference_batcher=cfg.get("inference_batcher"),
                 trajectory=cfg.get("trajectory"),
                 game_instructions=cfg.get("game_instructions", ""),
             )

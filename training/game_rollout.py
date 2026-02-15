@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 import random
-import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
@@ -71,7 +70,7 @@ def compute_reward(winner_code: int, trainee_role: str) -> float:
 def run_single_game(
     model: Any,
     tokenizer: Any,
-    lock: threading.Lock,
+    batcher: Any,
     game_config: dict | None = None,
     opponent_pool: list[dict[str, str]] | None = None,
     inoculation: bool = False,
@@ -106,7 +105,7 @@ def run_single_game(
         "provider": "local",
         "model_instance": model,
         "tokenizer": tokenizer,
-        "inference_lock": lock,
+        "inference_batcher": batcher,
         "trajectory": trajectory,
     }
 
@@ -181,7 +180,7 @@ def run_single_game(
 def run_parallel_games(
     model: Any,
     tokenizer: Any,
-    lock: threading.Lock,
+    batcher: Any,
     num_games: int = 15,
     game_config: dict | None = None,
     opponent_pool: list[dict[str, str]] | None = None,
@@ -200,7 +199,7 @@ def run_parallel_games(
                 run_single_game,
                 model=model,
                 tokenizer=tokenizer,
-                lock=lock,
+                batcher=batcher,
                 game_config=game_config,
                 opponent_pool=opponent_pool,
                 inoculation=inoculation,

@@ -5,3 +5,4 @@
 logs/
 *.md
 eval_results/*
+wandb/

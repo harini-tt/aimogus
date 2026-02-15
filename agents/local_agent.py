@@ -52,6 +52,11 @@ class LocalModelAgent(BaseAgent):
         A **shared** ``transformers.AutoTokenizer``.
     inference_lock:
         A **shared** ``threading.Lock`` that serialises GPU calls.
+        Used as fallback when no *inference_batcher* is provided.
+    inference_batcher:
+        A **shared** ``InferenceBatcher`` that batches concurrent
+        ``model.generate()`` calls for dramatically higher throughput.
+        When provided, takes precedence over *inference_lock*.
     trajectory:
         A **per-game** mutable list.  Each LLM call appends a dict with
         ``input_ids`` and ``output_ids`` tensors (moved to CPU).  The
@@ -71,6 +76,7 @@ class LocalModelAgent(BaseAgent):
         model_instance: Any = None,
         tokenizer: Any = None,
         inference_lock: threading.Lock | None = None,
+        inference_batcher: Any = None,
         trajectory: list | None = None,
     ) -> None:
         super().__init__(
@@ -85,6 +91,7 @@ class LocalModelAgent(BaseAgent):
         self._model = model_instance
         self._tokenizer = tokenizer
         self._lock = inference_lock or threading.Lock()
+        self._batcher = inference_batcher
         self._trajectory: list[dict] = trajectory if trajectory is not None else []
 
     # ------------------------------------------------------------------
@@ -142,12 +149,13 @@ class LocalModelAgent(BaseAgent):
             gen_kwargs["temperature"] = temp
             gen_kwargs["top_p"] = 0.95
 
-        # Serialise GPU access across concurrent games
-        with self._lock:
-            output = self._model.generate(input_ids, **gen_kwargs)
-
-        # Extract only the newly generated tokens
-        new_tokens = output[0, input_ids.shape[1]:]
+        # Run inference — batched (preferred) or lock-serialised (fallback)
+        if self._batcher is not None:
+            new_tokens = self._batcher.submit(input_ids[0], gen_kwargs)
+        else:
+            with self._lock:
+                output = self._model.generate(input_ids, **gen_kwargs)
+            new_tokens = output[0, input_ids.shape[1]:]
         completion_text = self._tokenizer.decode(
             new_tokens, skip_special_tokens=True,
         )

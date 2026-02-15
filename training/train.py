@@ -17,7 +17,6 @@ Usage:
 from __future__ import annotations
 
 import logging
-import threading
 import time
 from pathlib import Path
 
@@ -117,7 +116,10 @@ def run_rollout_batch(
     )
     model.eval()
 
-    lock = threading.Lock()
+    from training.inference_batcher import InferenceBatcher
+
+    pad_token_id = tokenizer.pad_token_id or tokenizer.eos_token_id
+    batcher = InferenceBatcher(model, pad_token_id=pad_token_id)
 
     import time as _time
 
@@ -126,7 +128,7 @@ def run_rollout_batch(
     results = run_parallel_games(
         model=model,
         tokenizer=tokenizer,
-        lock=lock,
+        batcher=batcher,
         num_games=num_games,
         game_config=game_config,
         inoculation=inoculation,
@@ -333,7 +335,7 @@ def main(
     games_per_gpu: int = GAMES_PER_GPU,
     num_inference_gpus: int = NUM_INFERENCE_GPUS,
     num_players: int = 9,
-    eval_every: int = 3,
+    eval_every: int = 1,
     num_tqa_questions: int = 50,
     num_eval_games: int = 5,
 ):
@@ -419,6 +421,7 @@ def main(
     # Async pipeline: rollout N+1 overlaps with GRPO update N
     # ------------------------------------------------------------------
     all_metrics: list[dict] = []
+    eval_results: list[dict] = []
 
     # Kick off the first rollout batch
     print(f"\n[main] Starting rollout batch 0 ...")
@@ -432,8 +435,29 @@ def main(
         for _ in range(num_inference_gpus)
     ]
 
+    def _collect_finished_evals(handles, results_list):
+        """Non-blocking: log any eval handles that have completed."""
+        still_pending = []
+        for eval_iter, handle in handles:
+            try:
+                result = handle.get(timeout=0)
+                results_list.append(result)
+                wb.log_eval(result)
+                print(
+                    f"  [eval iter {eval_iter:2d}] TruthfulQA={result['truthfulqa_accuracy']:.1%}  "
+                    f"WinRate={result['game_win_rate']:.0%}"
+                )
+            except TimeoutError:
+                still_pending.append((eval_iter, handle))
+            except Exception as exc:
+                print(f"  [eval iter {eval_iter:2d}] FAILED: {exc}")
+        return still_pending
+
     for i in range(num_iterations):
         t0 = time.time()
+
+        # Check for completed evals and log them immediately
+        eval_handles = _collect_finished_evals(eval_handles, eval_results)
 
         # Wait for current rollout batch to finish
         print(f"\n[main] Waiting for rollout batch {i} ...")
@@ -524,10 +548,9 @@ def main(
     eval_handles.append((final_iter, final_eval_handle))
 
     # ------------------------------------------------------------------
-    # Collect eval results
+    # Collect remaining eval results (blocking)
     # ------------------------------------------------------------------
-    print("\n[main] Collecting eval results ...")
-    eval_results: list[dict] = []
+    print("\n[main] Collecting remaining eval results ...")
     for eval_iter, handle in eval_handles:
         try:
             result = handle.get()
@@ -539,6 +562,7 @@ def main(
             )
         except Exception as exc:
             print(f"  [iter {eval_iter:2d}] eval FAILED: {exc}")
+    eval_handles = []
 
     # ------------------------------------------------------------------
     # Summary
