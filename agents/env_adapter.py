@@ -484,4 +484,3 @@ class EnvAgentAdapter:
                 self.player.name,
             )
         return text
-
