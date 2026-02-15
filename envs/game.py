@@ -274,14 +274,18 @@ class AmongUs:
             action, obs_loc = choice
             self.camera_record[agent.player.name] = action
             if str(action).startswith("KILL"):
-                location = agent.player.location
-                players = self.map.get_players_in_room(location)
-                witness = [player.name for player in players]
-                additional_info = f"Location: {location}, Witness: {witness}"
-                self.record_activity(agent.player, action, additional_info)
+                # Execute first, then only record if the kill succeeded.
+                # Kill can fail if the target moved away during parallel resolution.
+                agent.player.make_action(self, action, obs_loc)
+                if getattr(action, "success", True):
+                    location = agent.player.location
+                    players = self.map.get_players_in_room(location)
+                    witness = [player.name for player in players]
+                    additional_info = f"Location: {location}, Witness: {witness}"
+                    self.record_activity(agent.player, action, additional_info)
             else:
                 self.record_activity(agent.player, action)
-            agent.player.make_action(self, action, obs_loc)
+                agent.player.make_action(self, action, obs_loc)
             self.update_map()  # refresh UI after each action so you see players move
             if self.current_phase == "meeting":
                 break

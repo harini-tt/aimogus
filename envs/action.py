@@ -248,6 +248,15 @@ class Kill(Action):
     
     def execute(self, env, player):
         super().execute(env, player)
+        # Validate target is still in the same room and alive.
+        # During parallel action resolution the target may have moved away.
+        if player.location != self.other_player.location:
+            self.success = False
+            return
+        if not self.other_player.is_alive:
+            self.success = False
+            return
+        self.success = True
         self.other_player.is_alive = False
         player.kill_cooldown = env.game_config["kill_cooldown"]
     
