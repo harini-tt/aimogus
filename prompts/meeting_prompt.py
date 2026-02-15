@@ -5,11 +5,11 @@ An emergency meeting has been called.
 
 Players still alive: {alive_players}
 
-The discussion is happening now. Based on everything you know — your
-observations, prior conversations, and the discussion so far — contribute to
-the conversation. Be strategic: share useful information, ask pointed
-questions, or defend yourself if accused.
+Contribute to the discussion. Share observations, ask questions, or defend yourself.
 
-Keep your response to 1-3 sentences, like a real player would in a fast-paced
-discussion. Do not narrate actions — just speak as yourself.\
+Respond as JSON with:
+- "reasoning": your private analysis of the situation
+- "message": your public speech to the group (1-3 sentences, natural and in-character)
+
+Output ONLY valid JSON.\
 """

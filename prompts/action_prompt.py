@@ -19,10 +19,13 @@ ACTION_PROMPT = """\
 
 {available_actions}
 
-Based on the situation above, choose exactly ONE action from the available \
-actions list. Respond with ONLY the action text exactly as shown (e.g. \
-"MOVE from Cafeteria to Weapons" or "KILL Player 2: blue"). Do not explain \
-your reasoning — just output the action.\
+Choose exactly ONE action from the list above. Respond as JSON with:
+- "reasoning": your private strategic thinking
+- "action": the action text exactly as listed above
+
+Example: {{"reasoning": "Moving to Admin to do my task and check for suspicious activity.", "action": "MOVE from Cafeteria to Admin"}}
+
+Output ONLY valid JSON.\
 """
 
 OBSERVATION_LOCATION_PROMPT = """\
@@ -31,5 +34,9 @@ You are viewing the security monitor. Choose a room to observe.
 Available rooms:
 {rooms}
 
-Respond with ONLY the room name. Do not explain your reasoning.\
+Respond as JSON with:
+- "reasoning": why you chose this room
+- "room": the room name exactly as listed above
+
+Output ONLY valid JSON.\
 """

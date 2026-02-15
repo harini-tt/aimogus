@@ -10,6 +10,9 @@ Provides:
 
 from __future__ import annotations
 
+import json
+import logging
+import re
 from difflib import SequenceMatcher
 from typing import Any
 
@@ -25,9 +28,12 @@ from agents.models import (
     Action as PydanticAction,
 )
 from prompts.action_prompt import ACTION_PROMPT, OBSERVATION_LOCATION_PROMPT
+from prompts.meeting_prompt import MEETING_PROMPT
 
 # Env action classes — imported lazily in methods to avoid circular deps
 import envs.action as env_action_mod
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -71,6 +77,43 @@ def _best_match(response: str, candidates: list[str]) -> int:
             best_score = score
             best_idx = idx
     return best_idx
+
+
+def _extract_json(response: str) -> dict | None:
+    """Robustly extract a JSON object from an LLM response.
+
+    Handles:
+    - Raw JSON strings
+    - JSON wrapped in markdown code fences (```json ... ``` or ``` ... ```)
+    - Extra text before/after the JSON object
+
+    Returns the parsed dict, or ``None`` if no valid JSON object is found.
+    """
+    text = response.strip()
+
+    # 1. Try direct parse
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # 2. Try extracting from markdown code fences
+    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
+    if fence_match:
+        try:
+            return json.loads(fence_match.group(1).strip())
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # 3. Try finding a JSON object anywhere in the text
+    brace_match = re.search(r"\{.*\}", text, re.DOTALL)
+    if brace_match:
+        try:
+            return json.loads(brace_match.group(0))
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -167,16 +210,45 @@ class EnvAgentAdapter:
         )
 
         # Call the LLM
-        response = self.agent.chat_completions(temperature=0.7, max_completion_tokens=256)
+        response = self.agent.chat_completions(
+            temperature=0.7,
+            response_format={"type": "json_object"},
+        )
 
-        # Parse the response into an env action
-        chosen = self._parse_action_response(response, available)
+        # Try to extract structured JSON with reasoning + action
+        parsed = _extract_json(response)
+        if parsed and "action" in parsed:
+            action_text = parsed["action"]
+            reasoning = parsed.get("reasoning", "")
+            if reasoning:
+                logger.info(
+                    "[%s] Action reasoning: %s", self.player.name, reasoning
+                )
+        else:
+            # Fallback: treat the entire response as the action text
+            action_text = response
+            logger.warning(
+                f"[%s] Failed to parse JSON from action response, falling back to raw text {action_text}.",
+                self.player.name,
+            )
 
-        # If it's a Speak action, provide the LLM response as the message
+        # Guard: if the LLM returned an empty / whitespace-only response,
+        # don't let fuzzy matching accidentally pick a dangerous action
+        # like CallMeeting.  Instead, pick a safe default.
+        if not action_text.strip():
+            logger.warning(
+                "[%s] Empty action text — choosing a safe default action "
+                "instead of fuzzy-matching.",
+                self.player.name,
+            )
+            chosen = self._safe_default_action(available)
+        else:
+            # Parse the action text into an env action
+            chosen = self._parse_action_response(action_text, available)
+
+        # If it's a Speak action, generate a proper speech via the meeting prompt
         if isinstance(chosen, env_action_mod.Speak):
-            # For speak, ask the LLM for what to say (or reuse response if
-            # the response looks like dialogue rather than an action pick)
-            message = self._generate_speech(response, available)
+            message = self._generate_speech()
             chosen.provide_message(message)
 
         return chosen
@@ -194,9 +266,26 @@ class EnvAgentAdapter:
                 round=self.agent._current_round(),
             )
         )
-        response = self.agent.chat_completions(temperature=0.3, max_completion_tokens=64)
+        response = self.agent.chat_completions(
+            temperature=0.3,
+            response_format={"type": "json_object"},
+        )
+
+        # Try to extract structured JSON with reasoning + room
+        parsed = _extract_json(response)
+        if parsed and "room" in parsed:
+            room_text = parsed["room"]
+            reasoning = parsed.get("reasoning", "")
+            if reasoning:
+                logger.info(
+                    "[%s] Monitor reasoning: %s", self.player.name, reasoning
+                )
+        else:
+            # Fallback: treat the entire response as the room name
+            room_text = response
+
         # Fuzzy match to a valid room
-        idx = _best_match(response, room_list)
+        idx = _best_match(room_text, room_list)
         return room_list[idx]
 
     def inject_meeting_transcript(
@@ -302,6 +391,30 @@ class EnvAgentAdapter:
             available_actions=actions_text,
         )
 
+    @staticmethod
+    def _safe_default_action(available: list[Any]) -> Any:
+        """Pick a safe fallback action when the LLM response is empty.
+
+        Priority order:
+          1. A random MoveTo (navigates without side-effects)
+          2. Any action that is NOT CallMeeting / Kill / Vote
+          3. Whatever is first in the list (last resort)
+        """
+        import random
+
+        move_actions = [a for a in available if type(a).__name__ == "MoveTo"]
+        if move_actions:
+            return random.choice(move_actions)
+
+        safe_actions = [
+            a for a in available
+            if type(a).__name__ not in ("CallMeeting", "Kill", "Vote")
+        ]
+        if safe_actions:
+            return random.choice(safe_actions)
+
+        return available[0]
+
     def _parse_action_response(
         self, response: str, available: list[Any]
     ) -> Any:
@@ -310,37 +423,63 @@ class EnvAgentAdapter:
         idx = _best_match(response, candidates)
         return available[idx]
 
-    def _generate_speech(self, initial_response: str, available: list[Any]) -> str:
+    def _generate_speech(self) -> str:
         """
-        Generate a meeting speech.
+        Generate a meeting speech using the MEETING_PROMPT.
 
-        If the initial_response looks like dialogue (not a pure action pick),
-        use it directly. Otherwise ask the LLM for a short statement.
+        The LLM is asked to return JSON with ``"reasoning"`` (private inner
+        monologue — deception strategy for impostors, deduction for crewmates)
+        and ``"message"`` (the public speech other players will hear).
+
+        Only the ``"message"`` is returned; reasoning is logged privately.
         """
-        # If the response doesn't look like an action string, treat it as speech
-        action_strings = [str(a) for a in available]
-        # Check if the response is very similar to an action — if not, it's speech
-        best_score = max(
-            SequenceMatcher(None, initial_response.strip().lower(), a.lower()).ratio()
-            for a in action_strings
-        ) if action_strings else 0.0
+        # Build meeting context from the player's current state
+        meeting_context = self.player.observation_history_prompt()
+        alive_players = ", ".join(
+            p for p in (self.player.location_info or "").split(", ")
+        ) if self.player.location_info else "Unknown"
 
-        if best_score < 0.5:
-            # The LLM already produced speech-like text
-            return initial_response.strip()
+        prompt_text = MEETING_PROMPT.format(
+            meeting_context=meeting_context,
+            alive_players=alive_players,
+        )
 
-        # Otherwise, ask the LLM to speak
         self.agent.add_interaction(
             SystemEvent(
                 event_type="speak_prompt",
-                content=(
-                    "You are in a meeting discussion. Say something strategic — "
-                    "share observations, accuse someone, or defend yourself. "
-                    "Keep it to 1-3 sentences."
-                ),
+                content=prompt_text,
                 round=self.agent._current_round(),
             )
         )
-        speech = self.agent.chat_completions(temperature=0.8, max_completion_tokens=200)
-        return speech.strip()
+
+        response = self.agent.chat_completions(
+            temperature=0.8,
+            response_format={"type": "json_object"},
+        )
+
+        # Try to extract structured JSON with reasoning + message
+        parsed = _extract_json(response)
+        if parsed and "message" in parsed:
+            reasoning = parsed.get("reasoning", "")
+            if reasoning:
+                logger.info(
+                    "[%s] Speech reasoning (PRIVATE): %s",
+                    self.player.name,
+                    reasoning,
+                )
+            return parsed["message"].strip()
+
+        # Fallback: treat the entire response as the speech
+        logger.warning(
+            "[%s] Failed to parse JSON from speech response, using raw text.",
+            self.player.name,
+        )
+        text = response.strip()
+        if not text:
+            text = "I have nothing to report right now."
+            logger.warning(
+                "[%s] Speech response was empty; using placeholder.",
+                self.player.name,
+            )
+        return text
 

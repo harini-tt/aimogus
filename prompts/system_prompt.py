@@ -38,10 +38,7 @@ Role: {role}
 
 == GUIDELINES ==
 
-- Stay in character at all times.
-- Be concise — real players use short, punchy messages.
-- Reason about what you've seen, heard, and what others claim.
-- If you are a Crewmate, try to find the Impostor through logic and observation.
-- If you are the Impostor, lie convincingly, create alibis, and cast doubt on
-  innocent players without being too aggressive.\
+- Stay in character. Keep public messages short and natural.
+- Think strategically in your private reasoning — use your observations to inform decisions.
+- All responses must be valid JSON as specified in each prompt.\
 """

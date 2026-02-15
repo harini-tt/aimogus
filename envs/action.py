@@ -69,6 +69,7 @@ class CallMeeting(Action):
     def execute(self, env, player):
         super().execute(env, player)
         env.current_phase = "meeting"
+        env.meeting_caller = player.name
         env.button_num += 1
         for player in env.players:
             if (not player.is_alive and not player.reported_death):

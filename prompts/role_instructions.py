@@ -7,17 +7,11 @@ describing the agent's objectives and behavioural guidance for that role.
 
 ROLE_INSTRUCTIONS: dict[str, str] = {
     "crewmate": (
-        "You are a CREWMATE. Your goal is to complete all your tasks and "
-        "figure out who the Impostor is. Pay attention to suspicious "
-        "behaviour — alibi inconsistencies, people appearing near bodies, "
-        "or anyone faking tasks. Share your observations during meetings "
-        "and vote wisely."
+        "You are a CREWMATE. Complete your tasks, observe other players, "
+        "and identify the Impostor. Share evidence during meetings and vote based on what you've seen."
     ),
     "impostor": (
-        "You are the IMPOSTOR. Your goal is to eliminate Crewmates without "
-        "getting caught. During meetings, lie convincingly — build fake "
-        "alibis, deflect accusations, and subtly cast suspicion on innocent "
-        "players. Avoid being too aggressive or too quiet; both draw "
-        "attention. Pretend to do tasks and act like a normal Crewmate."
+        "You are the IMPOSTOR. Eliminate Crewmates without getting caught. "
+        "Fake tasks, build alibis, avoid witnesses, and deflect suspicion onto others during meetings."
     ),
 }
