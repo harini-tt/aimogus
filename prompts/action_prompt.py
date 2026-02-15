@@ -19,13 +19,14 @@ ACTION_PROMPT = """\
 
 {available_actions}
 
-Choose exactly ONE action from the list above. Respond as JSON with:
-- "reasoning": your private strategic thinking
-- "action": the action text exactly as listed above
+Choose exactly ONE action from the list above.
 
-Example: {{"reasoning": "Moving to Admin to do my task and check for suspicious activity.", "action": "MOVE from Cafeteria to Admin"}}
+Think step-by-step about your strategy (this reasoning is private and other players cannot see it).
+Then, on the LAST line of your response, write your chosen action prefixed with "ACTION: " exactly as listed above.
 
-Output ONLY valid JSON.\
+Example:
+I should head to Admin to complete my task. Nobody is around so it's safe.
+ACTION: MOVE from Cafeteria to Admin\
 """
 
 OBSERVATION_LOCATION_PROMPT = """\
@@ -34,9 +35,6 @@ You are viewing the security monitor. Choose a room to observe.
 Available rooms:
 {rooms}
 
-Respond as JSON with:
-- "reasoning": why you chose this room
-- "room": the room name exactly as listed above
-
-Output ONLY valid JSON.\
+Think about which room to observe (your reasoning is private).
+Then, on the LAST line write the room name prefixed with "ROOM: " exactly as listed above.\
 """

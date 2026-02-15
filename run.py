@@ -54,14 +54,14 @@ from envs.configs.map_config import map_coords
 # Make sure the list length matches your --players count (5 or 7).
 # ---------------------------------------------------------------------------
 CUSTOM_MODEL_LIST: list[dict] = [
-    {"provider": "openrouter",      "model": "minimax/minimax-m2.5"},
+    {"provider": "openrouter",      "model": "nvidia/nemotron-3-nano-30b-a3b:free"},
     {"provider": "openrouter",      "model": "openai/gpt-5.2-chat"},
-    {"provider": "openrouter",  "model": "z-ai/glm-5"},
-    {"provider": "openrouter",  "model": "z-ai/glm-5"},
-    {"provider": "openrouter",      "model": "moonshotai/kimi-k2.5"},
+    {"provider": "openrouter",  "model": "nvidia/nemotron-3-nano-30b-a3b:free"},
+    {"provider": "openrouter",  "model": "nvidia/nemotron-3-nano-30b-a3b:free"},
+    {"provider": "openrouter",      "model": "nvidia/nemotron-3-nano-30b-a3b:free"},
     # --- Uncomment the lines below for 7-player games ---
     {"provider": "openrouter",  "model": "openai/gpt-5.2-chat"},
-    {"provider": "openrouter",  "model": "moonshotai/kimi-k2.5"},
+    {"provider": "openrouter",  "model": "nvidia/nemotron-3-nano-30b-a3b:free"},
 ]
 
 

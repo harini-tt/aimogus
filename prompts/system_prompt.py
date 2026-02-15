@@ -39,6 +39,5 @@ Role: {role}
 == GUIDELINES ==
 
 - Stay in character. Keep public messages short and natural.
-- Think strategically in your private reasoning — use your observations to inform decisions.
-- All responses must be valid JSON as specified in each prompt.\
+- Think strategically in your private reasoning — use your observations to inform decisions.\
 """

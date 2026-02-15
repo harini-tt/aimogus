@@ -10,7 +10,6 @@ Provides:
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from difflib import SequenceMatcher
@@ -79,41 +78,61 @@ def _best_match(response: str, candidates: list[str]) -> int:
     return best_idx
 
 
-def _extract_json(response: str) -> dict | None:
-    """Robustly extract a JSON object from an LLM response.
+def _parse_delimited_field(response: str, prefix: str) -> tuple[str, str]:
+    """Extract a prefixed field from the last matching line of *response*.
 
-    Handles:
-    - Raw JSON strings
-    - JSON wrapped in markdown code fences (```json ... ``` or ``` ... ```)
-    - Extra text before/after the JSON object
+    Scans lines bottom-up for one starting with *prefix* (case-insensitive).
+    Returns ``(reasoning, value)`` where *reasoning* is everything before the
+    matched line and *value* is the text after the prefix.
 
-    Returns the parsed dict, or ``None`` if no valid JSON object is found.
+    If no line matches, the last non-empty line is treated as the value and
+    everything before it is the reasoning.
+    """
+    lines = response.strip().splitlines()
+    prefix_lower = prefix.lower().strip()
+
+    # Scan bottom-up for the delimiter line
+    for i in range(len(lines) - 1, -1, -1):
+        stripped = lines[i].strip()
+        if stripped.lower().startswith(prefix_lower):
+            value = stripped[len(prefix_lower):].strip()
+            reasoning = "\n".join(lines[:i]).strip()
+            return reasoning, value
+        # Also accept without colon spacing variations (e.g. "ACTION:X")
+    # Fallback: last non-empty line is the value
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].strip():
+            value = lines[i].strip()
+            reasoning = "\n".join(lines[:i]).strip()
+            return reasoning, value
+
+    return "", response.strip()
+
+
+def _parse_private_public(response: str) -> tuple[str, str]:
+    """Split a response on ``[PRIVATE]`` / ``[PUBLIC]`` delimiters.
+
+    Returns ``(private_reasoning, public_message)``.
+    If the delimiters are missing the entire response is treated as the
+    public message.
     """
     text = response.strip()
 
-    # 1. Try direct parse
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, ValueError):
-        pass
+    # Try to split on [PUBLIC]
+    public_match = re.split(r"\[PUBLIC\]", text, flags=re.IGNORECASE)
+    if len(public_match) >= 2:
+        before_public = public_match[0]
+        public_message = "[PUBLIC]".join(public_match[1:]).strip()
 
-    # 2. Try extracting from markdown code fences
-    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
-    if fence_match:
-        try:
-            return json.loads(fence_match.group(1).strip())
-        except (json.JSONDecodeError, ValueError):
-            pass
+        # Extract private reasoning (strip the [PRIVATE] tag if present)
+        private_reasoning = re.sub(
+            r"\[PRIVATE\]", "", before_public, flags=re.IGNORECASE
+        ).strip()
 
-    # 3. Try finding a JSON object anywhere in the text
-    brace_match = re.search(r"\{.*\}", text, re.DOTALL)
-    if brace_match:
-        try:
-            return json.loads(brace_match.group(0))
-        except (json.JSONDecodeError, ValueError):
-            pass
+        return private_reasoning, public_message
 
-    return None
+    # No delimiters found — entire response is the public message
+    return "", text
 
 
 # ---------------------------------------------------------------------------
@@ -223,24 +242,13 @@ class EnvAgentAdapter:
         # Call the LLM
         response = self.agent.chat_completions(
             temperature=0.7,
-            response_format={"type": "json_object"},
         )
 
-        # Try to extract structured JSON with reasoning + action
-        parsed = _extract_json(response)
-        if parsed and "action" in parsed:
-            action_text = parsed["action"]
-            reasoning = parsed.get("reasoning", "")
-            if reasoning:
-                logger.info(
-                    "[%s] Action reasoning: %s", self.player.name, reasoning
-                )
-        else:
-            # Fallback: treat the entire response as the action text
-            action_text = response
-            logger.warning(
-                f"[%s] Failed to parse JSON from action response, falling back to raw text {action_text}.",
-                self.player.name,
+        # Parse the delimiter-based response: reasoning + ACTION: <choice>
+        reasoning, action_text = _parse_delimited_field(response, "ACTION:")
+        if reasoning:
+            logger.info(
+                "[%s] Action reasoning: %s", self.player.name, reasoning
             )
 
         # Guard: if the LLM returned an empty / whitespace-only response,
@@ -279,21 +287,14 @@ class EnvAgentAdapter:
         )
         response = self.agent.chat_completions(
             temperature=0.3,
-            response_format={"type": "json_object"},
         )
 
-        # Try to extract structured JSON with reasoning + room
-        parsed = _extract_json(response)
-        if parsed and "room" in parsed:
-            room_text = parsed["room"]
-            reasoning = parsed.get("reasoning", "")
-            if reasoning:
-                logger.info(
-                    "[%s] Monitor reasoning: %s", self.player.name, reasoning
-                )
-        else:
-            # Fallback: treat the entire response as the room name
-            room_text = response
+        # Parse the delimiter-based response: reasoning + ROOM: <name>
+        reasoning, room_text = _parse_delimited_field(response, "ROOM:")
+        if reasoning:
+            logger.info(
+                "[%s] Monitor reasoning: %s", self.player.name, reasoning
+            )
 
         # Fuzzy match to a valid room
         idx = _best_match(room_text, room_list)
@@ -438,11 +439,10 @@ class EnvAgentAdapter:
         """
         Generate a meeting speech using the MEETING_PROMPT.
 
-        The LLM is asked to return JSON with ``"reasoning"`` (private inner
-        monologue — deception strategy for impostors, deduction for crewmates)
-        and ``"message"`` (the public speech other players will hear).
+        The LLM writes private reasoning between ``[PRIVATE]`` and
+        ``[PUBLIC]`` delimiters, followed by the public speech.
 
-        Only the ``"message"`` is returned; reasoning is logged privately.
+        Only the public portion is returned; reasoning is logged privately.
         """
         # Build meeting context from the player's current state
         meeting_context = self.player.observation_history_prompt()
@@ -465,27 +465,18 @@ class EnvAgentAdapter:
 
         response = self.agent.chat_completions(
             temperature=0.8,
-            response_format={"type": "json_object"},
         )
 
-        # Try to extract structured JSON with reasoning + message
-        parsed = _extract_json(response)
-        if parsed and "message" in parsed:
-            reasoning = parsed.get("reasoning", "")
-            if reasoning:
-                logger.info(
-                    "[%s] Speech reasoning (PRIVATE): %s",
-                    self.player.name,
-                    reasoning,
-                )
-            return parsed["message"].strip()
+        # Parse [PRIVATE] / [PUBLIC] delimited response
+        reasoning, public_message = _parse_private_public(response)
+        if reasoning:
+            logger.info(
+                "[%s] Speech reasoning (PRIVATE): %s",
+                self.player.name,
+                reasoning,
+            )
 
-        # Fallback: treat the entire response as the speech
-        logger.warning(
-            "[%s] Failed to parse JSON from speech response, using raw text.",
-            self.player.name,
-        )
-        text = response.strip()
+        text = public_message.strip()
         if not text:
             text = "I have nothing to report right now."
             logger.warning(
