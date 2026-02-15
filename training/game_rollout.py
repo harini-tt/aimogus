@@ -22,7 +22,7 @@ from envs.configs.game_config import NINE_MEMBER_GAME
 # Opponent pool — models the trainee plays against via OpenRouter
 # ---------------------------------------------------------------------------
 OPPONENT_POOL: list[dict[str, str]] = [
-    {"provider": "openrouter", "model": "nvidia/nemotron-3-nano-30b-a3b:free"},
+    {"provider": "openrouter", "model": "nvidia/nemotron-3-nano-30b-a3b"},
     {"provider": "openrouter", "model": "google/gemini-2.5-flash-lite"},
     {"provider": "openrouter", "model": "x-ai/grok-4.1-fast"},
     {"provider": "openrouter", "model": "z-ai/glm-4.5-air"},

@@ -1,0 +1,78 @@
+_wandb:
+    value:
+        cli_version: 0.25.0
+        e:
+            rljeqp8uq82d0jblmlbaia78jee7ylvv:
+                apple:
+                    ecpuCores: 4
+                    gpuCores: 20
+                    memoryGb: 24
+                    name: Apple M4 Pro
+                    pcpuCores: 10
+                    ramTotalBytes: "25769803776"
+                    swapTotalBytes: "6442450944"
+                args:
+                    - run
+                    - training/train.py
+                    - --run-name
+                    - vanilla
+                codePath: .venv/bin/modal
+                codePathLocal: .venv/bin/modal
+                cpu_count: 14
+                cpu_count_logical: 14
+                disk:
+                    /:
+                        total: "494384795648"
+                        used: "465400819712"
+                email: kshitij.sodani.007@gmail.com
+                executable: /Users/kshitij/treehacks-amogus-1/.venv/bin/python3
+                git:
+                    commit: fda017c6d4a723a169f55dff7b592c461d632cb5
+                    remote: https://github.com/samarth-bhargav/treehacks-amogus.git
+                host: MacBook-Pro-8.local
+                memory:
+                    total: "25769803776"
+                os: macOS-15.7.3-arm64-arm-64bit-Mach-O
+                program: /Users/kshitij/treehacks-amogus-1/.venv/bin/modal
+                python: CPython 3.13.5
+                root: /Users/kshitij/treehacks-amogus-1
+                startedAt: "2026-02-15T10:57:58.201924Z"
+                writerId: rljeqp8uq82d0jblmlbaia78jee7ylvv
+        m: []
+        python_version: 3.13.5
+        t:
+            "1":
+                - 105
+            "2":
+                - 105
+            "3":
+                - 13
+                - 16
+            "4": 3.13.5
+            "5": 0.25.0
+            "10":
+                - 20
+            "12": 0.25.0
+            "13": darwin-arm64
+base_model:
+    value: Qwen/Qwen2.5-7B-Instruct
+eval_every:
+    value: 3
+games_per_gpu:
+    value: 15
+games_per_iteration:
+    value: 60
+inoculation:
+    value: false
+num_eval_games:
+    value: 5
+num_inference_gpus:
+    value: 4
+num_iterations:
+    value: 14
+num_players:
+    value: 9
+num_tqa_questions:
+    value: 50
+run_name:
+    value: vanilla
