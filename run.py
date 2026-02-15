@@ -13,6 +13,7 @@ import argparse
 import logging
 import os
 import sys
+from datetime import datetime
 
 # ---------------------------------------------------------------------------
 # Ensure project root is on sys.path so local packages resolve
@@ -24,10 +25,18 @@ if PROJECT_ROOT not in sys.path:
 # ---------------------------------------------------------------------------
 # Configure logging — show INFO+ messages from our agents module
 # ---------------------------------------------------------------------------
+LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, f"game-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log")
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
     datefmt="%H:%M:%S",
+    handlers=[
+        logging.FileHandler(LOG_FILE, encoding="utf-8"),
+        logging.StreamHandler(sys.stdout),
+    ],
 )
 
 from envs.game import AmongUs
