@@ -349,29 +349,40 @@ function drawMap(positions, aliveStatus) {
         const roomH = maxY - minY;
 
         const sz = playerSize;
-        const availH = roomH - 16;
+        const midX = (minX + maxX) / 2;
+        const midY = (minY + maxY) / 2;
 
-        // Compute gap: start with default, shrink to overlap if needed to fit
+        // Compute layout: keep gap, pack tighter if needed
         let gapX = space;
         let gapY = space;
-        const perRowDefault = Math.max(1, Math.floor((roomW - gapX) / (sz + gapX)));
-        const rowsNeeded = Math.ceil(players.length / perRowDefault);
-        if (rowsNeeded * (sz + gapY) > availH) {
-            gapY = Math.max(-sz * 0.6, (availH - rowsNeeded * sz) / rowsNeeded);
-        }
         const perRow = Math.max(1, Math.floor((roomW - gapX) / (sz + gapX)));
-        if (perRow * (sz + gapX) > roomW) {
-            gapX = Math.max(-sz * 0.6, (roomW - perRow * sz) / perRow);
+        const rowsNeeded = Math.ceil(players.length / perRow);
+        if (rowsNeeded * (sz + gapY) > roomH) {
+            gapY = Math.max(-sz * 0.6, (roomH - rowsNeeded * sz) / rowsNeeded);
         }
 
-        const startY = minY + 16;
-        let x = minX + Math.max(gapX, 1);
-        let y = startY;
-        let col = 0;
+        // Compute total group size then center on room
+        const lastRowCount = players.length - (rowsNeeded - 1) * perRow;
+        const groupW = Math.min(players.length, perRow) * (sz + gapX) - gapX;
+        const groupH = rowsNeeded * (sz + gapY) - gapY;
+        const startX = midX - groupW / 2;
+        const startY = midY - groupH / 2;
 
-        players.forEach(playerName => {
+        let col = 0;
+        let row = 0;
+
+        players.forEach((playerName, idx) => {
             const player = playersByName.get(playerName);
             if (!player) return;
+
+            // Center partial last row
+            const isLastRow = row === rowsNeeded - 1;
+            const countThisRow = isLastRow ? lastRowCount : perRow;
+            const rowW = countThisRow * (sz + gapX) - gapX;
+            const rowOffsetX = (groupW - rowW) / 2;
+
+            const x = startX + rowOffsetX + col * (sz + gapX);
+            const y = startY + row * (sz + gapY);
 
             const color = COLOR_MAP[player.color] || player.color;
             const isAlive = aliveStatus[playerName];
@@ -412,11 +423,9 @@ function drawMap(positions, aliveStatus) {
             }
 
             col++;
-            x += sz + gapX;
             if (col >= perRow) {
                 col = 0;
-                x = minX + Math.max(gapX, 1);
-                y += sz + gapY;
+                row++;
             }
         });
     }
