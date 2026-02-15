@@ -28,8 +28,8 @@ const ROOM_LABELS = {
 const SPRITE_SHEET_GRID = 3;
 const SPRITE_FRAME_COL = 2;  // top-right frame in a 3x3 sheet
 const SPRITE_FRAME_ROW = 0;
-const PLAYER_SPRITE_SIZE = 36;
-const PLAYER_SPRITE_GAP = 2;
+const PLAYER_SPRITE_SIZE = 52;
+const PLAYER_SPRITE_GAP = -18;
 
 // ============================================================
 // Game State
@@ -348,20 +348,26 @@ function drawMap(positions, aliveStatus) {
         const roomW = maxX - minX;
         const roomH = maxY - minY;
 
-        // Figure out how many fit per row and how many rows needed
-        const perRow = Math.max(1, Math.floor((roomW - space) / (playerSize + space)));
-        const rowsNeeded = Math.ceil(players.length / perRow);
-        const availH = roomH - 16; // leave room for label at top
+        const sz = playerSize;
+        const availH = roomH - 16;
 
-        // Shrink sprites if they'd overflow the room vertically
-        let sz = playerSize;
-        if (rowsNeeded * (sz + space) > availH) {
-            sz = Math.max(16, Math.floor((availH - space) / rowsNeeded) - space);
+        // Compute gap: start with default, shrink to overlap if needed to fit
+        let gapX = space;
+        let gapY = space;
+        const perRowDefault = Math.max(1, Math.floor((roomW - gapX) / (sz + gapX)));
+        const rowsNeeded = Math.ceil(players.length / perRowDefault);
+        if (rowsNeeded * (sz + gapY) > availH) {
+            gapY = Math.max(-sz * 0.6, (availH - rowsNeeded * sz) / rowsNeeded);
+        }
+        const perRow = Math.max(1, Math.floor((roomW - gapX) / (sz + gapX)));
+        if (perRow * (sz + gapX) > roomW) {
+            gapX = Math.max(-sz * 0.6, (roomW - perRow * sz) / perRow);
         }
 
-        const startY = minY + 16; // below label
-        let x = minX + space;
+        const startY = minY + 16;
+        let x = minX + Math.max(gapX, 1);
         let y = startY;
+        let col = 0;
 
         players.forEach(playerName => {
             const player = playersByName.get(playerName);
@@ -392,12 +398,11 @@ function drawMap(positions, aliveStatus) {
                 ctx.stroke();
             }
 
-            // Draw X for dead players
             if (!isAlive) {
                 ctx.beginPath();
                 ctx.moveTo(x, y);
                 ctx.lineTo(x + sz, y + sz);
-                ctx.strokeStyle = '#e94560';
+                ctx.strokeStyle = '#c44';
                 ctx.lineWidth = 2.5;
                 ctx.stroke();
                 ctx.beginPath();
@@ -406,11 +411,12 @@ function drawMap(positions, aliveStatus) {
                 ctx.stroke();
             }
 
-            // Advance position, wrap to next row within room bounds
-            x += sz + space;
-            if (x + sz > maxX - space) {
-                x = minX + space;
-                y += sz + space;
+            col++;
+            x += sz + gapX;
+            if (col >= perRow) {
+                col = 0;
+                x = minX + Math.max(gapX, 1);
+                y += sz + gapY;
             }
         });
     }
