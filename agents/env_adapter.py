@@ -170,6 +170,8 @@ class EnvAgentAdapter:
         tools: list[Any] | None = None,
         agent: BaseAgent | None = None,
         model: str = "gpt-4o",
+        game_config_block: str = "",
+        known_impostors: list[str] | None = None,
     ) -> None:
         self.player = player
 
@@ -185,6 +187,8 @@ class EnvAgentAdapter:
                 role=role,
                 assigned_tasks=task_names,
                 model=model,
+                game_config_block=game_config_block,
+                known_impostors=known_impostors if role == Role.IMPOSTOR else [],
             )
 
         self._tools = tools or []

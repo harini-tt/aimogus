@@ -55,12 +55,16 @@ class OpenRouterAgent(BaseAgent):
         assigned_tasks: list[str] | None = None,
         player_names: list[str] | None = None,
         model: str = "openai/gpt-4o",
+        game_config_block: str = "",
+        known_impostors: list[str] | None = None,
     ) -> None:
         super().__init__(
             name=name,
             role=role,
             game_instructions=game_instructions,
             assigned_tasks=assigned_tasks,
+            game_config_block=game_config_block,
+            known_impostors=known_impostors,
         )
         self.model = model
         self.player_names: list[str] = player_names or []

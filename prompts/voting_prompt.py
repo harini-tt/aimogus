@@ -7,5 +7,5 @@ Meeting summary:
 
 Players still alive (eligible targets): {alive_players}
 
-Decide who to vote for, or skip. Keep your reasoning concise and stay in character.\
+Facts: only living players can be voted; skipping keeps everyone; ejection happens only if one target has the highest votes above skip; who-voted-for-whom is not revealed.\
 """
