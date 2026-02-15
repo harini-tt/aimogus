@@ -37,7 +37,8 @@ class AmongUs:
     def __init__(self, 
                 game_config=SEVEN_MEMBER_GAME, 
                 interviewer=None, UI=None,
-                model_configs: list[dict] | None = None):
+                model_configs: list[dict] | None = None,
+                game_logger: logging.Logger | None = None):
         """
         Parameters
         ----------
@@ -52,7 +53,12 @@ class AmongUs:
                 ``{"provider": "openai"|"openrouter", "model": "<model-id>"}``
             Length must equal ``game_config["num_players"]``.
             If *None*, every player uses ``OpenAIAgent`` with ``gpt-4o``.
+        game_logger : logging.Logger | None
+            Optional per-game logger.  If *None*, uses the module-level logger.
+            Pass a dedicated logger when running multiple games in parallel so
+            that each game writes to its own log file.
         """
+        self.logger = game_logger or logger
         self.map = Map()
         self.message_system = MessageSystem(game_config=game_config)
         self.interviewer = interviewer
@@ -106,10 +112,10 @@ class AmongUs:
             self.players.append(player)
             self.camera_record[player.name] = 'stand quietly and do nothing'
         self.task_assignment.assign_tasks_to_players(self.players)
-        logger.info("[INIT] Player roster:")
+        self.logger.info("[INIT] Player roster:")
         for p in self.players:
             tasks_str = ", ".join(str(t) for t in p.tasks) if len(p.tasks) > 0 else "none"
-            logger.info("[INIT] %s | %s | tasks: %s", p.name, p.identity, tasks_str)
+            self.logger.info("[INIT] %s | %s | tasks: %s", p.name, p.identity, tasks_str)
         self.update_map()
     
     def initialize_agents(self):
@@ -159,7 +165,7 @@ class AmongUs:
             text = "Crewmates win! (All task completed)"
         elif winner == 4:
             text = "Impostors win! (Time limit reached)"
-        logger.info("[GAME_OVER] %s", text)
+        self.logger.info("[GAME_OVER] %s", text)
         if self.UI:
             self.UI.report(text)
             self.UI.quit_UI()
@@ -256,7 +262,7 @@ class AmongUs:
         print(f"\n{'='*60}")
         print(f"  TURN {self.timestep} — Phase: {self.current_phase}")
         print(f"{'='*60}")
-        logger.info("[TURN] T%d | phase: %s", self.timestep, self.current_phase)
+        self.logger.info("[TURN] T%d | phase: %s", self.timestep, self.current_phase)
         if self.current_phase == "task":
             self.task_phase_step()
         elif self.current_phase == "meeting":
@@ -333,7 +339,7 @@ class AmongUs:
         # Discussion — each round is parallelized across all agents
         for rnd in range(self.game_config["discussion_rounds"]):
             print("Discussion round", rnd + 1)
-            logger.info("[DISCUSSION] round %d/%d", rnd + 1, self.game_config["discussion_rounds"])
+            self.logger.info("[DISCUSSION] round %d/%d", rnd + 1, self.game_config["discussion_rounds"])
 
             # 1. Compute available actions for everyone
             self.check_actions()
@@ -411,7 +417,7 @@ class AmongUs:
         print(self.vote_info_one_round)
         print(self.votes)
         for vi in vote_info:
-            logger.info("[VOTE] %s", vi)
+            self.logger.info("[VOTE] %s", vi)
 
         # Count skip votes and determine outcome
         skip_count = sum(1 for v in self.vote_info_one_round.values() if v == "skip")
@@ -435,7 +441,7 @@ class AmongUs:
                       "action": f"{player.name} was voted out! Detailed vote info:{vote_info}",
                       "player": "all players"}
             print(f"== {player.name} was voted out ==")
-            logger.info("[VOTEOUT] %s was voted out", player.name)
+            self.logger.info("[VOTEOUT] %s was voted out", player.name)
         else:
             import_event = {"timestep": self.timestep,
                       "phase": self.current_phase,
@@ -443,7 +449,7 @@ class AmongUs:
                       "action": f"No one was voted out. Detailed vote info:{vote_info}",
                       "player": "all players"}
             print("== No one was voted out ==")
-            logger.info("[VOTEOUT] No one was voted out")
+            self.logger.info("[VOTEOUT] No one was voted out")
         self.important_activity_log.append(import_event)
         self.current_phase = "task"
         self.discussion_rounds_left = self.game_config["discussion_rounds"]
@@ -456,7 +462,7 @@ class AmongUs:
     
     def run_game(self):
         self.initialize_game()
-        logger.info("[CONFIG] %s", self.game_config)
+        self.logger.info("[CONFIG] %s", self.game_config)
         game_over = self.check_game_over()
         while not game_over: 
             self.game_step()
@@ -475,9 +481,9 @@ class AmongUs:
                       "action": action, 
                       "player": player}
             if additional_info:
-                logger.info("[ACTION] T%d [task] %s: %s | %s", self.timestep, player.name, action, additional_info)
+                self.logger.info("[ACTION] T%d [task] %s: %s | %s", self.timestep, player.name, action, additional_info)
             else:
-                logger.info("[ACTION] T%d [task] %s: %s", self.timestep, player.name, action)
+                self.logger.info("[ACTION] T%d [task] %s: %s", self.timestep, player.name, action)
         elif self.current_phase == "meeting":
             round = self.game_config["discussion_rounds"] - self.discussion_rounds_left
             record = {"timestep": self.timestep,
@@ -485,7 +491,7 @@ class AmongUs:
                       "round": round, 
                       "action": action, 
                       "player": player}
-            logger.info("[ACTION] T%d [meeting R%d] %s: %s", self.timestep, round, player.name, action)
+            self.logger.info("[ACTION] T%d [meeting R%d] %s: %s", self.timestep, round, player.name, action)
         self.activity_log.append(record)
         self.message_system.route_real_time_message(self, record)
         if str(record["action"]).startswith("COMPLETE TASK"):

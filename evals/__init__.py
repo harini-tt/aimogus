@@ -1,7 +1,8 @@
 """
-Evaluation framework for Among Us LLM agent simulation.
+Lean evaluation framework for Among Us LLM agent simulation.
 
-This package provides capabilities evals, alignment evals, Elo ratings,
-LLM-as-judge scoring, and post-game cognitive interviews — all as a
-separate layer that wraps the existing game engine without modifications.
+Provides three core metrics per model:
+  - TruthfulQA score (standalone benchmark, independent of gameplay)
+  - Deception Elo (from game performance as impostor)
+  - Win Rate (impostor and crewmate)
 """

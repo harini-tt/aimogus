@@ -3,6 +3,11 @@ Deception Elo / Detection Elo rating system.
 
 Implements the Elo update formulas from Golechha & Garriga-Alonso
 (NeurIPS 2025), adapted for multi-player Among Us games.
+
+Key formulas (Section 3.2 of the paper):
+  E_i = 1 / (1 + 10^((R_c - R_i) / 400))
+  R'_i = R_i + K * (S - E_i)
+where K = 32, S = 1 for win, 0 for loss.
 """
 
 from __future__ import annotations
@@ -39,8 +44,8 @@ def update_elo(
     Both Deception Elo (impostors) and Detection Elo (crewmates) are
     updated atomically from the same game record.
 
-    Important: opponent averages are **snapshotted before** either
-    update loop begins, so order of iteration doesn't matter.
+    Opponent averages are snapshotted BEFORE either update loop begins,
+    so iteration order doesn't matter.
     """
     for ps in record.player_summaries.values():
         ratings.ensure_model(ps.model)
@@ -106,6 +111,8 @@ def bootstrap_elo_ci(
     """
     rng = random.Random(seed)
     n = len(records)
+    if n == 0:
+        return {}
 
     all_models: set[str] = set()
     for r in records:

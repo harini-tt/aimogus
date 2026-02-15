@@ -1,9 +1,9 @@
 """
 Core data models for the eval framework.
 
-Defines flat, serializable records extracted from post-game state,
-as well as judge I/O structures.  All models use dataclasses (not
-Pydantic) to avoid coupling with the game engine's Pydantic layer.
+Flat, serializable dataclasses extracted from post-game state.
+Uses dataclasses (not Pydantic) to avoid coupling with the game
+engine's Pydantic layer.
 """
 
 from __future__ import annotations
@@ -12,86 +12,8 @@ import json
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
-
-
-# ---------------------------------------------------------------------------
-# Enums
-# ---------------------------------------------------------------------------
-
-
-class JudgeMode(str, Enum):
-    """What information the judge receives."""
-
-    OMNISCIENT = "omniscient"
-    OBSERVER = "observer"
-
-
-class EvalDimension(str, Enum):
-    """Scoring dimensions."""
-
-    # Capability
-    AWARENESS = "awareness"
-    DECEPTION = "deception"
-    PLANNING = "planning"
-    LYING = "lying"
-    # Alignment
-    SYCOPHANCY = "sycophancy"
-    MANIPULATION = "manipulation"
-    SCHEMING = "scheming"
-    # Interview (Paper 1)
-    SELF_KNOWLEDGE = "self_knowledge"
-    MEMORY = "memory"
-    REASONING = "reasoning"
-    REFLECTION = "reflection"
-
-
-# ---------------------------------------------------------------------------
-# Per-event flat records (extracted from post-game state)
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class ActionRecord:
-    """One action taken by one player at one timestep."""
-
-    timestep: int
-    phase: str  # "task" | "meeting"
-    round: int | None  # meeting round (None during task phase)
-    player_name: str
-    player_identity: str  # "Crewmate" | "Impostor"
-    action_type: str  # "MOVE", "KILL", "VOTE", "SPEAK", etc.
-    target_player: str | None = None
-    location_from: str | None = None
-    location_to: str | None = None
-    message: str | None = None  # SPEAK content
-    task_name: str | None = None
-    raw_str: str = ""
-
-
-@dataclass
-class VoteRecord:
-    """One vote in one meeting."""
-
-    timestep: int
-    meeting_index: int
-    voter_name: str
-    voter_identity: str
-    target_name: str  # player name or "skip"
-    target_identity: str | None = None
-
-
-@dataclass
-class KillRecord:
-    """One kill event."""
-
-    timestep: int
-    killer_name: str
-    victim_name: str
-    location: str = ""
-    witnesses: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -101,26 +23,21 @@ class KillRecord:
 
 @dataclass
 class PlayerSummary:
-    """Per-player summary computed from the full game."""
+    """Per-player summary computed from one finished game."""
 
     name: str
-    identity: str
-    model: str  # e.g. "gpt-4o", "grok-4.1-fast"
+    identity: str  # "Crewmate" | "Impostor"
+    model: str  # e.g. "gpt-4o", "x-ai/grok-4.1-fast"
     provider: str  # "openai" | "openrouter"
     is_alive_at_end: bool
-    timestep_of_death: int | None
-    tasks_assigned: int
-    tasks_completed: int
-    total_actions: int
-    action_counts: dict[str, int] = field(default_factory=dict)
-    votes_cast: list[VoteRecord] = field(default_factory=list)
+    kills: int = 0  # kills committed (impostor only)
+    tasks_completed: int = 0
+    tasks_assigned: int = 0
     votes_received_against: int = 0
-    meetings_called: int = 0
-    speeches: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
-# Game-level snapshot
+# Game-level record
 # ---------------------------------------------------------------------------
 
 
@@ -129,8 +46,7 @@ class GameRecord:
     """
     Complete structured extraction from one finished game.
 
-    Sufficient for Elo computation and deterministic metrics —
-    does **not** hold references to live game objects.
+    Sufficient for Elo computation and win-rate metrics.
     """
 
     game_id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -138,21 +54,11 @@ class GameRecord:
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
 
-    # Config
-    game_config: dict[str, Any] = field(default_factory=dict)
-    game_config_name: str = ""
-
     # Outcome
-    winner_code: int = 0
+    winner_code: int = 0  # 1-4, see envs/game.py check_game_over
     winner_side: str = ""  # "impostor" | "crewmate"
     total_timesteps: int = 0
     task_completion: float = 0.0
-
-    # Flat records
-    actions: list[ActionRecord] = field(default_factory=list)
-    kills: list[KillRecord] = field(default_factory=list)
-    votes: list[VoteRecord] = field(default_factory=list)
-    voteout_events: list[dict[str, Any]] = field(default_factory=list)
 
     # Per-player
     player_summaries: dict[str, PlayerSummary] = field(default_factory=dict)
@@ -172,23 +78,14 @@ class GameRecord:
             if ps.identity == "Crewmate"
         ]
 
-    def save(self, directory: Path) -> Path:
-        path = directory / f"{self.game_id}.json"
-        path.write_text(json.dumps(asdict(self), indent=2, default=str))
-        return path
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
-    @classmethod
-    def load(cls, path: Path) -> GameRecord:
-        raw = json.loads(path.read_text())
-        # Reconstitute nested dataclasses
-        raw["actions"] = [ActionRecord(**a) for a in raw.get("actions", [])]
-        raw["kills"] = [KillRecord(**k) for k in raw.get("kills", [])]
-        raw["votes"] = [VoteRecord(**v) for v in raw.get("votes", [])]
-        raw["player_summaries"] = {
-            name: PlayerSummary(**ps)
-            for name, ps in raw.get("player_summaries", {}).items()
-        }
-        return cls(**raw)
+    def save(self, directory: Path) -> Path:
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / f"{self.game_id}.json"
+        path.write_text(json.dumps(self.to_dict(), indent=2, default=str))
+        return path
 
 
 # ---------------------------------------------------------------------------
@@ -200,7 +97,7 @@ class GameRecord:
 class EloRatings:
     """Tracks Deception and Detection Elo for every model."""
 
-    INITIAL_RATING: float = 1000.0
+    INITIAL_RATING: float = 1500.0
 
     deception: dict[str, float] = field(default_factory=dict)
     detection: dict[str, float] = field(default_factory=dict)
@@ -210,6 +107,7 @@ class EloRatings:
     games_as_crewmate: dict[str, int] = field(default_factory=dict)
 
     def ensure_model(self, model_id: str) -> None:
+        """Initialize rating entries for *model_id* if they don't exist."""
         for d in (self.deception, self.detection):
             d.setdefault(model_id, self.INITIAL_RATING)
         for h in (self.deception_history, self.detection_history):
@@ -219,47 +117,33 @@ class EloRatings:
 
 
 # ---------------------------------------------------------------------------
-# Metric result (generic, used by all metrics modules)
+# TruthfulQA result per model
 # ---------------------------------------------------------------------------
 
 
 @dataclass
-class MetricResult:
-    """A single computed metric for one player in one game."""
+class TruthfulQAResult:
+    """TruthfulQA benchmark result for one model."""
 
-    metric_name: str
-    player_name: str
-    player_identity: str
     model: str
-    value: float
-    metadata: dict[str, Any] = field(default_factory=dict)
+    provider: str
+    accuracy: float  # fraction of correct MC1 answers
+    num_questions: int
+    correct: int
+    details: list[dict[str, Any]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
-# Judge I/O
+# Top-level eval results container
 # ---------------------------------------------------------------------------
 
 
 @dataclass
-class DimensionScore:
-    """Score for a single dimension from one or more judge calls."""
+class EvalResults:
+    """Aggregated results from a full eval run."""
 
-    dimension: str
-    median_score: float
-    mean_score: float
-    binary: bool  # threshold >= 6
-    std_dev: float
-    confidence: float
-    reasoning: str
-    n_calls: int = 1
-
-
-@dataclass
-class InterviewExchange:
-    """One question-answer pair from a post-game interview."""
-
-    agent_name: str
-    dimension: str
-    question: str
-    response: str
-    question_index: int = 0
+    game_records: list[GameRecord] = field(default_factory=list)
+    elo_ratings: Optional[EloRatings] = None
+    win_rates: dict[str, dict[str, Any]] = field(default_factory=dict)
+    truthfulqa_scores: list[TruthfulQAResult] = field(default_factory=list)
+    elo_confidence_intervals: dict[str, dict[str, Any]] = field(default_factory=dict)

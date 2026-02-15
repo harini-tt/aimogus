@@ -1,9 +1,9 @@
 """
-Batch game runner and eval orchestrator.
+Game orchestrator for the eval framework.
 
-Runs N games headless, extracts structured data, computes all
-requested metrics, and optionally runs LLM-judge scoring and
-post-game interviews.  **No game engine modifications.**
+Runs N games headless (in parallel when max_parallel > 1) with random
+model assignment from the configured model pool, then computes Elo
+ratings and win rates.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import os
 import random
 import sys
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -23,242 +24,304 @@ if _PROJECT_ROOT not in sys.path:
 
 from envs.game import AmongUs
 
-from evals.configs import EvalConfig
-from evals.extractor import extract_game_record, parse_private_reasoning
-from evals.ground_truth import build_context_block, build_game_summary, build_ground_truth_facts
-from evals.interview import interview_all_agents
-from evals.judge import judge_step, judge_with_reliability
-from evals.models import (
-    DimensionScore,
-    EloRatings,
-    GameRecord,
-    JudgeMode,
-    MetricResult,
-)
-from evals.metrics.capabilities import compute_all_deterministic
+from evals.config import EvalConfig, ModelSpec
+from evals.extractor import extract_game_record
+from evals.models import EvalResults, GameRecord, TruthfulQAResult
 from evals.metrics.elo import bootstrap_elo_ci, process_all_games
-from evals.metrics.sycophancy import compute_ppd_scores, compute_vote_conformity
-from evals.metrics.deceptive_alignment import (
-    compute_observer_effect,
-    compute_strategic_patience,
-    compute_trust_exploitation_curve,
-)
-from evals.metrics.means_to_ends import compute_fabrication_rates, compute_vulnerability_targeting
-from evals.metrics.deception_taxonomy import classify_utterances, compute_deception_profiles
-from evals.prompts import INTERVIEW_JUDGE_PROMPT, INTERVIEW_DIMENSION_DESCRIPTIONS, JUDGE_SYSTEM_PROMPT
-from evals.sampler import KeyMoments
+from evals.metrics.win_rate import compute_win_rates
+from evals.truthfulqa import run_truthfulqa
 
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Single-game pipeline
+# Model assignment
 # ---------------------------------------------------------------------------
 
 
-def _resolve_model_configs(
+def _assign_models_for_game(
     config: EvalConfig,
     rng: random.Random,
 ) -> list[dict[str, str]]:
-    """Determine per-player model configs for one game."""
+    """
+    Randomly assign models from the config's model pool to player slots
+    for one game.  Each slot gets a random draw (with replacement) from
+    the pool, so all models appear across roles over many games.
+    """
     num_players = config.game_config["num_players"]
-    if config.model_configs:
-        return config.model_configs[:num_players]
-    if config.model_pool:
-        return [rng.choice(config.model_pool) for _ in range(num_players)]
-    return [{"provider": "openai", "model": "gpt-4o"}] * num_players
+    pool = config.model_dicts()
+
+    if not pool:
+        return [{"provider": "openai", "model": "gpt-4o"}] * num_players
+
+    return [rng.choice(pool) for _ in range(num_players)]
 
 
-def run_single_game(
-    config: EvalConfig,
+# ---------------------------------------------------------------------------
+# Single game (thread-safe)
+# ---------------------------------------------------------------------------
+
+
+def _run_single_game(
+    game_config: dict,
     model_configs: list[dict[str, str]],
     game_id: str,
-) -> dict[str, Any]:
+    output_dir: str,
+) -> GameRecord:
     """
-    Run one game and compute all requested metrics.
+    Run one Among Us game headless and return a GameRecord.
 
-    Returns a dict with ``game_record``, ``metrics``, plus optional
-    ``alignment_results``, ``taxonomy_results``, ``interview_results``.
+    Thread-safe: each game instance gets its own dedicated logger that
+    writes to a separate file, so parallel games never interleave logs.
     """
-    log_dir = os.path.join(config.output_dir, "logs")
+    # Set up a per-game logger with its own file handler
+    log_dir = os.path.join(output_dir, "logs")
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, f"game-{game_id}.log")
 
-    # Set up per-game logging
-    game_logger = logging.getLogger("envs.game")
+    game_logger = logging.getLogger(f"envs.game.{game_id}")
+    game_logger.setLevel(logging.INFO)
+    game_logger.propagate = False
     fh = logging.FileHandler(log_path, encoding="utf-8")
     fh.setFormatter(logging.Formatter("%(message)s"))
     game_logger.addHandler(fh)
 
-    result: dict[str, Any] = {}
-
     try:
-        # Run the game
         game = AmongUs(
-            game_config=config.game_config,
+            game_config=game_config,
             UI=None,
             model_configs=model_configs,
+            game_logger=game_logger,
         )
         winner_code = game.run_game()
-
-        # Extract structured data
-        rec = extract_game_record(
-            game, winner_code, model_configs, config.game_config_name,
-        )
-        rec.game_id = game_id
-        result["game_record"] = rec
-
-        # Deterministic metrics
-        metrics: list[MetricResult] = []
-        if config.run_deterministic:
-            metrics.extend(compute_all_deterministic(rec))
-
-        # Per-step LLM judge
-        if config.run_judge:
-            judge_mode = JudgeMode(config.judge_mode)
-            sampler = KeyMoments()
-            for adapter in game.agents:
-                agent = adapter.agent
-                interactions = agent.context.interactions
-                indices = sampler.select(interactions, agent.role.value, config.judge_max_steps)
-                for idx in indices:
-                    interaction = interactions[idx]
-                    output_text = str(interaction.model_dump()) if hasattr(interaction, "model_dump") else str(interaction)
-                    ctx = build_context_block(
-                        judge_mode, game, rec, agent.name,
-                        getattr(interaction, "round", 0),
-                        output_text, log_path,
-                    )
-                    for dim in config.judge_dimensions:
-                        score = judge_step(ctx, dim, agent.role.value, config.judge_model, config.judge_n_calls)
-                        metrics.append(MetricResult(
-                            metric_name=f"judge_{dim}",
-                            player_name=agent.name,
-                            player_identity=adapter.player.identity,
-                            model=rec.player_summaries.get(agent.name)
-                            and rec.player_summaries[agent.name].model or "unknown",
-                            value=score.median_score,
-                            metadata={"binary": score.binary, "std": score.std_dev},
-                        ))
-
-        # Post-game interviews
-        if config.run_interviews:
-            interview_data = interview_all_agents(
-                game, dimensions=config.interview_dimensions,
-            )
-            # Judge each interview response
-            game_summary = build_game_summary(rec)
-            for agent_name, exchanges in interview_data.items():
-                ps = rec.player_summaries.get(agent_name)
-                for ex in exchanges:
-                    gt_facts = build_ground_truth_facts(rec, agent_name)
-                    dim_desc = INTERVIEW_DIMENSION_DESCRIPTIONS.get(ex.dimension, "")
-                    outcome = f"{rec.winner_side} win" if ps else "unknown"
-                    prompt = INTERVIEW_JUDGE_PROMPT.format(
-                        dimension_name=ex.dimension.upper(),
-                        dimension_description=dim_desc,
-                        game_summary=game_summary,
-                        agent_name=agent_name,
-                        agent_role=ps.identity if ps else "?",
-                        outcome=outcome,
-                        question=ex.question,
-                        response=ex.response,
-                        ground_truth_facts=gt_facts,
-                    )
-                    score = judge_with_reliability(prompt, model=config.judge_model, n_calls=config.judge_n_calls)
-                    metrics.append(MetricResult(
-                        metric_name=f"interview_{ex.dimension}",
-                        player_name=agent_name,
-                        player_identity=ps.identity if ps else "?",
-                        model=ps.model if ps else "?",
-                        value=score.median_score,
-                        metadata={"binary": score.binary, "std": score.std_dev},
-                    ))
-            result["interview_data"] = interview_data
-
-        # Alignment metrics
-        if config.run_alignment:
-            private_reasoning = parse_private_reasoning(log_path)
-            result["alignment"] = {
-                "sycophancy_ppd": compute_ppd_scores(game, rec, private_reasoning, config.judge_model),
-                "vote_conformity": compute_vote_conformity(rec),
-                "strategic_patience": compute_strategic_patience(rec),
-                "trust_exploitation": compute_trust_exploitation_curve(rec),
-                "observer_effect": compute_observer_effect(rec),
-                "fabrication": compute_fabrication_rates(game, rec, config.judge_model),
-                "vulnerability_targeting": compute_vulnerability_targeting(rec),
-            }
-
-        # Deception taxonomy
-        if config.run_taxonomy:
-            private_reasoning = parse_private_reasoning(log_path)
-            classified = classify_utterances(game, rec, private_reasoning, config.judge_model)
-            profiles = compute_deception_profiles(classified)
-            result["taxonomy"] = {
-                "classified_utterances": classified,
-                "deception_profiles": profiles,
-            }
-
-        result["metrics"] = metrics
-        return result
-
+        record = extract_game_record(game, winner_code, model_configs)
+        record.game_id = game_id
+        return record
     finally:
         game_logger.removeHandler(fh)
         fh.close()
 
 
 # ---------------------------------------------------------------------------
-# Batch runner
+# Batch game runner
 # ---------------------------------------------------------------------------
 
 
-def run_eval(config: EvalConfig) -> dict[str, Any]:
+def run_games(config: EvalConfig) -> list[GameRecord]:
     """
-    Run a full eval: N games, all requested metrics.
+    Run all games specified by the config and return GameRecords.
 
-    Returns a dict with ``records``, ``all_metrics``, ``elo_ratings``,
-    ``elo_ci``, and per-game results in ``game_results``.
+    Games run in parallel when ``config.game_settings.max_parallel > 1``.
     """
     rng = random.Random(config.seed)
-    os.makedirs(config.output_dir, exist_ok=True)
+    num_games = config.game_settings.num_games
+    max_parallel = max(config.game_settings.max_parallel, 1)
+
+    # Pre-generate all game assignments so the RNG is deterministic
+    # regardless of execution order.
+    jobs: list[tuple[str, list[dict[str, str]]]] = []
+    for _ in range(num_games):
+        game_id = str(uuid.uuid4())[:8]
+        model_configs = _assign_models_for_game(config, rng)
+        jobs.append((game_id, model_configs))
+
+    # Print plan
+    for i, (game_id, model_configs) in enumerate(jobs):
+        model_names = [f"{c['provider']}/{c['model']}" for c in model_configs]
+        print(f"  Game {i + 1}/{num_games} (id={game_id}): {', '.join(set(model_names))}")
 
     records: list[GameRecord] = []
-    all_metrics: list[MetricResult] = []
-    game_results: list[dict[str, Any]] = []
+    game_config = config.game_config
 
-    for i in range(config.num_games):
-        game_id = f"{config.name}-{i:03d}"
-        model_configs = _resolve_model_configs(config, rng)
-        print(f"\n[eval] Game {i + 1}/{config.num_games} ({game_id})")
-        for j, mc in enumerate(model_configs):
-            print(f"  Player {j + 1}: {mc['provider']}/{mc['model']}")
+    if max_parallel <= 1:
+        # Sequential execution
+        for i, (game_id, model_configs) in enumerate(jobs):
+            print(f"\n--- Game {i + 1}/{num_games} (id={game_id}) ---")
+            try:
+                record = _run_single_game(
+                    game_config, model_configs, game_id, config.output_dir,
+                )
+                records.append(record)
+                print(f"  Result: {record.winner_side} wins (code={record.winner_code})")
+            except Exception as exc:
+                logger.error("Game %s failed: %s", game_id, exc, exc_info=True)
+                print(f"  Game {game_id} FAILED: {exc}")
+    else:
+        # Parallel execution using threads (not processes — OpenAI SDK
+        # exceptions are not picklable, and the work is I/O-bound anyway).
+        print(f"\n  Launching {num_games} games with max {max_parallel} in parallel...\n")
+        future_to_info: dict[Any, tuple[int, str]] = {}
 
-        result = run_single_game(config, model_configs, game_id)
-        rec = result["game_record"]
+        with ThreadPoolExecutor(max_workers=max_parallel) as executor:
+            for i, (game_id, model_configs) in enumerate(jobs):
+                future = executor.submit(
+                    _run_single_game,
+                    game_config, model_configs, game_id, config.output_dir,
+                )
+                future_to_info[future] = (i, game_id)
 
-        # Save game record
-        rec.save(Path(config.output_dir))
-        records.append(rec)
-        all_metrics.extend(result.get("metrics", []))
-        game_results.append(result)
+            for future in as_completed(future_to_info):
+                idx, game_id = future_to_info[future]
+                try:
+                    record = future.result()
+                    records.append(record)
+                    print(
+                        f"  [{len(records)}/{num_games}] Game {idx + 1} "
+                        f"(id={game_id}): {record.winner_side} wins "
+                        f"(T={record.total_timesteps}, tasks={record.task_completion:.0%})"
+                    )
+                except Exception as exc:
+                    logger.error("Game %s failed: %s", game_id, exc, exc_info=True)
+                    print(f"  [{len(records)}/{num_games}] Game {idx + 1} (id={game_id}) FAILED: {exc}")
 
-        print(f"  Winner: {rec.winner_side} (code {rec.winner_code}), "
-              f"T={rec.total_timesteps}, tasks={rec.task_completion:.0%}")
+    return records
 
-    # Elo computation
-    elo_ratings: EloRatings | None = None
-    elo_ci: dict[str, Any] | None = None
-    if config.run_elo and len(records) >= 2:
-        print("\n[eval] Computing Elo ratings...")
-        elo_ratings = process_all_games(records)
-        if len(records) >= 10:
-            print("[eval] Bootstrap confidence intervals...")
-            elo_ci = bootstrap_elo_ci(records, n_bootstrap=min(1000, len(records) * 10))
 
-    return {
-        "records": records,
-        "all_metrics": all_metrics,
-        "game_results": game_results,
-        "elo_ratings": elo_ratings,
-        "elo_ci": elo_ci,
-    }
+# ---------------------------------------------------------------------------
+# TruthfulQA eval (parallelized across models)
+# ---------------------------------------------------------------------------
+
+
+def run_truthfulqa_eval(config: EvalConfig) -> list[TruthfulQAResult]:
+    """
+    Run TruthfulQA MC1 against all unique models in the config, in parallel.
+
+    Returns a list of TruthfulQAResult (one per unique model).
+    """
+    # Deduplicate models
+    seen: set[str] = set()
+    unique_models: list[ModelSpec] = []
+    for m in config.models:
+        key = m.display_name()
+        if key not in seen:
+            seen.add(key)
+            unique_models.append(m)
+
+    if not unique_models:
+        return []
+
+    max_parallel = max(config.game_settings.max_parallel, 1)
+    num_models = len(unique_models)
+
+    print(f"\n{'='*60}")
+    print(f"  Running TruthfulQA MC1 benchmark")
+    print(f"  Questions per model: {config.truthfulqa.num_questions}")
+    print(f"  Models: {num_models}")
+    print(f"  Parallelism: {max_parallel}")
+    print(f"{'='*60}")
+
+    results: list[TruthfulQAResult] = []
+
+    def _eval_one(model_spec: ModelSpec) -> TruthfulQAResult:
+        return run_truthfulqa(
+            model_spec,
+            num_questions=config.truthfulqa.num_questions,
+            temperature=config.truthfulqa.temperature,
+            seed=config.seed or 42,
+        )
+
+    if max_parallel <= 1 or num_models <= 1:
+        # Sequential
+        for model_spec in unique_models:
+            print(f"\n  Evaluating {model_spec.display_name()}...")
+            try:
+                tqa_result = _eval_one(model_spec)
+                results.append(tqa_result)
+                print(f"    Accuracy: {tqa_result.accuracy:.1%} ({tqa_result.correct}/{tqa_result.num_questions})")
+            except Exception as exc:
+                logger.error("TruthfulQA failed for %s: %s", model_spec.display_name(), exc)
+                print(f"    FAILED: {exc}")
+    else:
+        # Parallel across models
+        print(f"\n  Evaluating {num_models} models in parallel...\n")
+        future_to_model: dict[Any, ModelSpec] = {}
+
+        with ThreadPoolExecutor(max_workers=min(max_parallel, num_models)) as executor:
+            for model_spec in unique_models:
+                future = executor.submit(_eval_one, model_spec)
+                future_to_model[future] = model_spec
+
+            for future in as_completed(future_to_model):
+                model_spec = future_to_model[future]
+                try:
+                    tqa_result = future.result()
+                    results.append(tqa_result)
+                    print(
+                        f"  [{len(results)}/{num_models}] {model_spec.display_name()}: "
+                        f"{tqa_result.accuracy:.1%} ({tqa_result.correct}/{tqa_result.num_questions})"
+                    )
+                except Exception as exc:
+                    logger.error("TruthfulQA failed for %s: %s", model_spec.display_name(), exc)
+                    print(f"  [{len(results)}/{num_models}] {model_spec.display_name()} FAILED: {exc}")
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Full eval run
+# ---------------------------------------------------------------------------
+
+
+def run_full_eval(config: EvalConfig, skip_truthfulqa: bool = False) -> EvalResults:
+    """
+    Run the complete eval pipeline: games + TruthfulQA.
+
+    Parameters
+    ----------
+    config
+        The eval configuration.
+    skip_truthfulqa
+        If True, skip the TruthfulQA benchmark.
+
+    Returns
+    -------
+    EvalResults
+        Aggregated results with Elo ratings, win rates, and TruthfulQA scores.
+    """
+    import shutil
+    from datetime import datetime
+
+    # Create a timestamped run folder inside output_dir
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    run_dir = os.path.join(config.output_dir, timestamp)
+    os.makedirs(run_dir, exist_ok=True)
+    config.output_dir = run_dir
+
+    print(f"  Run folder: {os.path.abspath(run_dir)}")
+
+    # Copy the source config into the run folder for reproducibility
+    if config.source_path and os.path.isfile(config.source_path):
+        shutil.copy2(config.source_path, os.path.join(run_dir, "config.yaml"))
+
+    results = EvalResults()
+
+    # ---- Game-based evals ----
+    if config.game_settings.num_games > 0:
+        print(f"\n{'='*60}")
+        print(f"  Running {config.game_settings.num_games} Among Us games")
+        print(f"  Players per game: {config.game_settings.players_per_game}")
+        print(f"  Models in pool: {len(config.models)}")
+        print(f"  Parallelism: {config.game_settings.max_parallel}")
+        print(f"{'='*60}")
+
+        records = run_games(config)
+        results.game_records = records
+
+        if records:
+            # Compute Elo ratings
+            results.elo_ratings = process_all_games(records)
+
+            # Compute bootstrap CIs
+            if len(records) >= 10:
+                results.elo_confidence_intervals = bootstrap_elo_ci(
+                    records, seed=config.seed,
+                )
+
+            # Compute win rates
+            results.win_rates = compute_win_rates(records)
+
+    # ---- TruthfulQA ----
+    if not skip_truthfulqa and config.models:
+        results.truthfulqa_scores = run_truthfulqa_eval(config)
+
+    return results
