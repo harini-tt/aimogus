@@ -95,7 +95,7 @@ class EnvAgentAdapter:
         self,
         player: Player,
         tools: list[Any] | None = None,
-        model: str = "gpt-4o",
+        model: str = "gpt-5.2",
     ) -> None:
         self.player = player
 
@@ -149,7 +149,7 @@ class EnvAgentAdapter:
         )
 
         # Call the LLM
-        response = self.agent.chat_completions(temperature=0.7, max_tokens=256)
+        response = self.agent.chat_completions(temperature=0.7, max_completion_tokens=256)
 
         # Parse the response into an env action
         chosen = self._parse_action_response(response, available)
@@ -176,7 +176,7 @@ class EnvAgentAdapter:
                 round=self.agent._current_round(),
             )
         )
-        response = self.agent.chat_completions(temperature=0.3, max_tokens=64)
+        response = self.agent.chat_completions(temperature=0.3, max_completion_tokens=64)
         # Fuzzy match to a valid room
         idx = _best_match(response, room_list)
         return room_list[idx]
@@ -292,6 +292,6 @@ class EnvAgentAdapter:
                 round=self.agent._current_round(),
             )
         )
-        speech = self.agent.chat_completions(temperature=0.8, max_tokens=200)
+        speech = self.agent.chat_completions(temperature=0.8, max_completion_tokens=200)
         return speech.strip()
 

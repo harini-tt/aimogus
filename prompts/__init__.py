@@ -18,6 +18,7 @@ from prompts.phase_prompts import (
     TASK_PHASE_INSTRUCTION,
     MEETING_PHASE_INSTRUCTION,
 )
+from prompts.role_instructions import ROLE_INSTRUCTIONS
 
 __all__ = [
     "SYSTEM_PROMPT",
@@ -27,4 +28,5 @@ __all__ = [
     "OBSERVATION_LOCATION_PROMPT",
     "TASK_PHASE_INSTRUCTION",
     "MEETING_PHASE_INSTRUCTION",
+    "ROLE_INSTRUCTIONS",
 ]

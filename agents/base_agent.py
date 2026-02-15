@@ -14,9 +14,12 @@ from agents.models import (
     Action,
     ActionType,
     AgentContext,
+    EmergencyMeeting,
     Interaction,
     Role,
+    SystemEvent,
 )
+from prompts import ROLE_INSTRUCTIONS, SYSTEM_PROMPT
 
 
 class BaseAgent(ABC):
@@ -133,6 +136,104 @@ class BaseAgent(ABC):
         self.context = AgentContext(
             game_instructions=game_instructions or self.context.game_instructions,
         )
+
+    # ------------------------------------------------------------------
+    # System prompt assembly
+    # ------------------------------------------------------------------
+
+    def build_system_message(self, player_names: list[str] | None = None) -> str:
+        """
+        Render the system prompt from the template, substituting the
+        agent's identity, role instructions, player list, and tasks.
+
+        If ``self.context.game_instructions`` is set, that string is
+        returned verbatim (caller-provided override).
+        """
+        if self.context.game_instructions:
+            return self.context.game_instructions
+        return SYSTEM_PROMPT.format(
+            name=self.name,
+            role=self.role.value.upper(),
+            role_instructions=ROLE_INSTRUCTIONS.get(self.role.value, ""),
+            player_list=", ".join(player_names) if player_names else "Unknown",
+            assigned_tasks=(
+                "\n".join(f"- {t}" for t in self.assigned_tasks)
+                if self.assigned_tasks
+                else "No tasks assigned."
+            ),
+        )
+
+    # ------------------------------------------------------------------
+    # Interaction rendering — converts Pydantic models to message dicts
+    # ------------------------------------------------------------------
+
+    def render_interaction(
+        self,
+        interaction: EmergencyMeeting | SystemEvent | Action,
+    ) -> list[dict[str, str]]:
+        """Convert a single interaction into chat-completions message dicts."""
+        if isinstance(interaction, EmergencyMeeting):
+            return self.render_meeting(interaction)
+        if isinstance(interaction, SystemEvent):
+            return self.render_system_event(interaction)
+        if isinstance(interaction, Action):
+            return self.render_action(interaction)
+        return []
+
+    def render_meeting(self, meeting: EmergencyMeeting) -> list[dict[str, str]]:
+        """Render an emergency meeting as a sequence of messages."""
+        msgs: list[dict[str, str]] = []
+
+        # Meeting header
+        header = f"[EMERGENCY MEETING — Round {meeting.round}] "
+        if meeting.body_reported:
+            header += (
+                f"{meeting.called_by} reported {meeting.body_reported}'s body."
+            )
+        else:
+            header += f"{meeting.called_by} called an emergency meeting."
+        msgs.append({"role": "user", "content": header})
+
+        # Conversation turns
+        for msg in meeting.messages:
+            if msg.speaker == self.name:
+                msgs.append({"role": "assistant", "content": msg.content})
+            else:
+                msgs.append({
+                    "role": "user",
+                    "content": f"[{msg.speaker}]: {msg.content}",
+                })
+
+        return msgs
+
+    def render_system_event(self, event: SystemEvent) -> list[dict[str, str]]:
+        """Render a system event as a single user message."""
+        return [{
+            "role": "user",
+            "content": f"[SYSTEM — {event.event_type}]: {event.content}",
+        }]
+
+    def render_action(self, action: Action) -> list[dict[str, str]]:
+        """Render an action as a brief note the agent 'remembers'."""
+        if action.actor == self.name:
+            # First-person: something *this* agent did
+            parts = [f"[YOUR ACTION — {action.action_type.value}]"]
+            if action.target:
+                parts.append(f"Target: {action.target}.")
+            if action.metadata:
+                details = ", ".join(f"{k}: {v}" for k, v in action.metadata.items())
+                parts.append(f"({details})")
+            return [{"role": "user", "content": " ".join(parts)}]
+        else:
+            # Third-person: something *another* agent did that this agent saw
+            parts = [f"[OBSERVED — {action.action_type.value}]"]
+            parts.append(f"{action.actor}")
+            if action.target:
+                parts.append(f"-> {action.target}.")
+            if action.metadata:
+                details = ", ".join(f"{k}: {v}" for k, v in action.metadata.items())
+                parts.append(f"({details})")
+            return [{"role": "user", "content": " ".join(parts)}]
 
     # ------------------------------------------------------------------
     # Internal utilities
