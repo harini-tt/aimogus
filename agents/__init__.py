@@ -23,11 +23,13 @@ from agents.models import (
     SystemEvent,
 )
 from agents.openai_agent import OpenAIAgent
+from agents.openrouter_agent import OpenRouterAgent
 from agents.env_adapter import EnvAgentAdapter
 
 __all__ = [
     "BaseAgent",
     "OpenAIAgent",
+    "OpenRouterAgent",
     "EnvAgentAdapter",
     "Role",
     "ActionType",

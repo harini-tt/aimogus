@@ -1,14 +1,17 @@
 """
-Concrete agent backed by the OpenAI Chat Completions API (gpt-5.2).
+Concrete agent backed by the OpenRouter API.
 
-Uses the raw ``openai`` Python SDK and loads the API key from a ``.env``
-file via ``python-dotenv``.
+OpenRouter exposes an OpenAI-compatible endpoint, so we reuse the ``openai``
+Python SDK and simply override ``base_url`` to point at OpenRouter.
+
+The API key is read from ``OPENROUTER_API_KEY`` in the ``.env`` file.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any
 
 import openai
@@ -19,13 +22,13 @@ from agents.models import Role
 
 logger = logging.getLogger(__name__)
 
-# Ensure .env is loaded so OPENAI_API_KEY is available
+# Ensure .env is loaded so OPENROUTER_API_KEY is available
 load_dotenv()
 
 
-class OpenAIAgent(BaseAgent):
+class OpenRouterAgent(BaseAgent):
     """
-    An Among Us agent powered by OpenAI's Chat Completions API.
+    An Among Us agent powered by the OpenRouter API.
 
     Parameters
     ----------
@@ -41,7 +44,7 @@ class OpenAIAgent(BaseAgent):
     player_names:
         Names of all players in the game (used to populate the system prompt).
     model:
-        OpenAI model identifier.  Defaults to ``"gpt-5.2"``.
+        OpenRouter model identifier.  Defaults to ``"openai/gpt-4o"``.
     """
 
     def __init__(
@@ -51,7 +54,7 @@ class OpenAIAgent(BaseAgent):
         game_instructions: str = "",
         assigned_tasks: list[str] | None = None,
         player_names: list[str] | None = None,
-        model: str = "gpt-5.2",
+        model: str = "openai/gpt-4o",
     ) -> None:
         super().__init__(
             name=name,
@@ -61,7 +64,10 @@ class OpenAIAgent(BaseAgent):
         )
         self.model = model
         self.player_names: list[str] = player_names or []
-        self.client = openai.OpenAI()  # reads OPENAI_API_KEY from env
+        self.client = openai.OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+        )
 
     # ------------------------------------------------------------------
     # Abstract interface implementation
@@ -69,7 +75,7 @@ class OpenAIAgent(BaseAgent):
 
     def format_context(self) -> list[dict[str, Any]]:
         """
-        Build the OpenAI ``messages`` list from the agent's context.
+        Build the OpenAI-compatible ``messages`` list from the agent's context.
 
         Structure:
             1. System message  — rendered from the system prompt template.
@@ -87,7 +93,7 @@ class OpenAIAgent(BaseAgent):
 
     def chat_completions(self, **kwargs: Any) -> str:
         """
-        Call the OpenAI Chat Completions API and return the assistant's
+        Call the OpenRouter Chat Completions API and return the assistant's
         text response.
 
         Any *kwargs* are forwarded to ``client.chat.completions.create``
@@ -96,8 +102,9 @@ class OpenAIAgent(BaseAgent):
         messages = self.format_context()
 
         logger.info(
-            "=== OpenAI Request [%s] ===\n%s",
+            "=== OpenRouter Request [%s] (model=%s) ===\n%s",
             self.name,
+            kwargs.get("model", self.model),
             json.dumps(messages, indent=2),
         )
 
@@ -109,7 +116,7 @@ class OpenAIAgent(BaseAgent):
         completion_text = response.choices[0].message.content or ""
 
         logger.info(
-            "=== OpenAI Response [%s] ===\n%s",
+            "=== OpenRouter Response [%s] ===\n%s",
             self.name,
             completion_text,
         )

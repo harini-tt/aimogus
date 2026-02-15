@@ -1,19 +1,40 @@
 from envs.map import Map, Spaceship
 from envs.player import Crewmate, Impostor, PLAYER_COLORS
 from agents.env_adapter import EnvAgentAdapter
+from agents.openai_agent import OpenAIAgent
+from agents.openrouter_agent import OpenRouterAgent
+from agents.models import Role
 from envs.task import TaskAssignment
 from envs.configs.game_config import FIVE_MEMBER_GAME, SEVEN_MEMBER_GAME
 from envs.tools import GetBestPath
 import numpy as np
 from prompts import TASK_PHASE_INSTRUCTION, MEETING_PHASE_INSTRUCTION
 
+# Map env identity string -> agents.models.Role
+_IDENTITY_TO_ROLE: dict[str, Role] = {
+    "Crewmate": Role.CREWMATE,
+    "Impostor": Role.IMPOSTOR,
+}
+
 class AmongUs:
     def __init__(self, 
                 game_config=SEVEN_MEMBER_GAME, 
-                interviewer=None, UI=None):
+                interviewer=None, UI=None,
+                model_configs: list[dict] | None = None):
         """
-        interviewer: Interviewer
+        Parameters
+        ----------
+        game_config : dict
+            Game configuration (player count, impostor count, etc.).
+        interviewer : Interviewer | None
             Interviewer object to be used for the game to ask questions.
+        UI : MapUI | None
+            Optional Tkinter UI.
+        model_configs : list[dict] | None
+            Per-player model configuration.  Each dict should have:
+                ``{"provider": "openai"|"openrouter", "model": "<model-id>"}``
+            Length must equal ``game_config["num_players"]``.
+            If *None*, every player uses ``OpenAIAgent`` with ``gpt-4o``.
         """
         self.map = Map()
         self.message_system = MessageSystem(game_config=game_config)
@@ -21,6 +42,7 @@ class AmongUs:
         self.UI = UI
         # config
         self.game_config = game_config
+        self.model_configs = model_configs
         self.all_phases = ["meeting", "task"]
         
         
@@ -70,7 +92,38 @@ class AmongUs:
     
     def initialize_agents(self):
         tools = [GetBestPath(metadata={'network': self.map.ship_map})]
-        self.agents = [EnvAgentAdapter(player, tools) for player in self.players]
+        self.agents = []
+        for idx, player in enumerate(self.players):
+            agent = self._build_agent(player, idx)
+            self.agents.append(EnvAgentAdapter(player, tools, agent=agent))
+
+    def _build_agent(self, player, idx: int):
+        """Create the appropriate BaseAgent subclass for *player*."""
+        role = _IDENTITY_TO_ROLE.get(player.identity, Role.CREWMATE)
+        task_names = [str(t) for t in player.tasks] if len(player.tasks) > 0 else []
+
+        if self.model_configs and idx < len(self.model_configs):
+            cfg = self.model_configs[idx]
+        else:
+            cfg = {"provider": "openai", "model": "gpt-4o"}
+
+        provider = cfg.get("provider", "openai")
+        model = cfg.get("model", "gpt-4o")
+
+        if provider == "openrouter":
+            return OpenRouterAgent(
+                name=player.name,
+                role=role,
+                assigned_tasks=task_names,
+                model=model,
+            )
+        else:
+            return OpenAIAgent(
+                name=player.name,
+                role=role,
+                assigned_tasks=task_names,
+                model=model,
+            )
         
     def report_winner(self, winner):
         if winner == 1:

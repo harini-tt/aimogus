@@ -3,8 +3,9 @@ Adapter layer that bridges the ``agents/`` framework (BaseAgent / OpenAIAgent)
 with the ``envs/`` game engine (Player, Action classes, AmongUs game loop).
 
 Provides:
-    - ``EnvAgentAdapter``  — wraps an ``OpenAIAgent`` around an env ``Player``
-      so the game loop can call ``choose_action()`` and get back env Action objects.
+    - ``EnvAgentAdapter``  — wraps a ``BaseAgent`` (or subclass) around an env
+      ``Player`` so the game loop can call ``choose_action()`` and get back env
+      Action objects.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from difflib import SequenceMatcher
 from typing import Any
 
 from envs.player import Player
+from agents.base_agent import BaseAgent
 from agents.openai_agent import OpenAIAgent
 from agents.models import (
     ActionType,
@@ -76,9 +78,10 @@ def _best_match(response: str, candidates: list[str]) -> int:
 
 class EnvAgentAdapter:
     """
-    Wraps an :class:`OpenAIAgent` and an env ``Player`` so the ``AmongUs``
-    game loop can call ``choose_action()`` / ``choose_observation_location()``
-    and receive back env ``Action`` objects.
+    Wraps a :class:`BaseAgent` (e.g. ``OpenAIAgent``, ``OpenRouterAgent``)
+    and an env ``Player`` so the ``AmongUs`` game loop can call
+    ``choose_action()`` / ``choose_observation_location()`` and receive back
+    env ``Action`` objects.
 
     Parameters
     ----------
@@ -87,31 +90,38 @@ class EnvAgentAdapter:
     tools : list[Any] | None
         Optional list of LangChain-style tools (currently unused by the
         OpenAI adapter but kept for API compatibility).
+    agent : BaseAgent | None
+        A pre-built agent instance.  When provided the adapter uses it
+        directly instead of creating one internally.  This allows callers
+        (e.g. ``AmongUs.initialize_agents``) to inject any ``BaseAgent``
+        subclass (``OpenAIAgent``, ``OpenRouterAgent``, …).
     model : str
-        OpenAI model identifier forwarded to ``OpenAIAgent``.
+        Model identifier forwarded to the default ``OpenAIAgent`` when no
+        *agent* is provided.
     """
 
     def __init__(
         self,
         player: Player,
         tools: list[Any] | None = None,
-        model: str = "gpt-5.2",
+        agent: BaseAgent | None = None,
+        model: str = "gpt-4o",
     ) -> None:
         self.player = player
 
-        # Derive role from the env player identity
-        role = _IDENTITY_TO_ROLE.get(player.identity, Role.CREWMATE)
-
-        # Build task name list
-        task_names = [str(t) for t in player.tasks] if len(player.tasks) > 0 else []
-
-        # Create the underlying LLM agent
-        self.agent = OpenAIAgent(
-            name=player.name,
-            role=role,
-            assigned_tasks=task_names,
-            model=model,
-        )
+        if agent is not None:
+            # Use the caller-provided agent directly
+            self.agent = agent
+        else:
+            # Fall back to creating an OpenAIAgent (backward compatible)
+            role = _IDENTITY_TO_ROLE.get(player.identity, Role.CREWMATE)
+            task_names = [str(t) for t in player.tasks] if len(player.tasks) > 0 else []
+            self.agent = OpenAIAgent(
+                name=player.name,
+                role=role,
+                assigned_tasks=task_names,
+                model=model,
+            )
 
         self._tools = tools or []
         # Track how many observations we've already synced
