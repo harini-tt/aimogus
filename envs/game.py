@@ -17,6 +17,18 @@ _IDENTITY_TO_ROLE: dict[str, Role] = {
     "Impostor": Role.IMPOSTOR,
 }
 
+# Action resolution priority (lower = resolved first).
+# Kills must land before reports/meetings, and meetings must trigger
+# before ordinary actions so the remaining queue is correctly abandoned.
+_ACTION_PRIORITY: dict[str, int] = {
+    "KILL": 0,
+    "CALL MEETING": 1,
+}
+
+def _action_priority(action) -> int:
+    """Return the resolution priority for *action* (lower = earlier)."""
+    return _ACTION_PRIORITY.get(action.name, 99)
+
 class AmongUs:
     def __init__(self, 
                 game_config=SEVEN_MEMBER_GAME, 
@@ -267,11 +279,17 @@ class AmongUs:
                 if pending:
                     time.sleep(0.1)  # avoid busy-spinning
 
-        # Phase 3: apply all chosen actions sequentially, updating UI after each
-        for agent, choice in zip(self.agents, choices):
-            if choice is None:
-                continue
-            action, obs_loc = choice
+        # Phase 3: apply actions in priority order (kills first, then
+        # reports/meetings, then everything else) so the game state is
+        # consistent regardless of agent enumeration order.
+        paired = [
+            (agent, choice)
+            for agent, choice in zip(self.agents, choices)
+            if choice is not None
+        ]
+        paired.sort(key=lambda pair: _action_priority(pair[1][0]))
+
+        for agent, (action, obs_loc) in paired:
             self.camera_record[agent.player.name] = action
             if str(action).startswith("KILL"):
                 # Execute first, then only record if the kill succeeded.
