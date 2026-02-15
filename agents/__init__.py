@@ -24,12 +24,14 @@ from agents.models import (
 )
 from agents.openai_agent import OpenAIAgent
 from agents.openrouter_agent import OpenRouterAgent
+from agents.local_agent import LocalModelAgent
 from agents.env_adapter import EnvAgentAdapter
 
 __all__ = [
     "BaseAgent",
     "OpenAIAgent",
     "OpenRouterAgent",
+    "LocalModelAgent",
     "EnvAgentAdapter",
     "Role",
     "ActionType",

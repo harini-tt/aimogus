@@ -99,6 +99,10 @@ class OpenAIAgent(BaseAgent):
         """
         messages = self.format_context()
 
+        # Translate HuggingFace-style max_new_tokens to OpenAI-style max_tokens
+        if "max_new_tokens" in kwargs:
+            kwargs.setdefault("max_tokens", kwargs.pop("max_new_tokens"))
+
         logger.info(
             "=== OpenAI Request [%s] ===\n%s",
             self.name,

@@ -246,6 +246,7 @@ class EnvAgentAdapter:
         # Call the LLM
         response = self.agent.chat_completions(
             temperature=0.7,
+            max_new_tokens=128,
         )
 
         # Parse the delimiter-based response: reasoning + ACTION: <choice>
@@ -291,6 +292,7 @@ class EnvAgentAdapter:
         )
         response = self.agent.chat_completions(
             temperature=0.3,
+            max_new_tokens=64,
         )
 
         # Parse the delimiter-based response: reasoning + ROOM: <name>
