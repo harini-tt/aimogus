@@ -52,13 +52,16 @@ const GameState = {
     playbackSpeed: 1,
     playbackTimer: null,
 
-    get totalTurns() {
-        return this.gameData ? this.gameData.turns.length : 0;
+    get totalStates() {
+        return this.playerPositions.length;
     },
 
+    // Returns the game turn for the current index, or null for the initial state (index 0)
     get currentTurn() {
-        if (!this.gameData || this.currentTurnIndex >= this.gameData.turns.length) return null;
-        return this.gameData.turns[this.currentTurnIndex];
+        if (!this.gameData || this.currentTurnIndex <= 0) return null;
+        const turnIdx = this.currentTurnIndex - 1;
+        if (turnIdx >= this.gameData.turns.length) return null;
+        return this.gameData.turns[turnIdx];
     },
 };
 
@@ -175,6 +178,11 @@ function precomputeStates() {
         }
         return totalAlive > 0 ? completedAlive / totalAlive : 0;
     }
+
+    // Push initial state: everyone alive in Cafeteria, 0% progress
+    positions.push({ ...currentPositions });
+    alive.push({ ...currentAlive });
+    progress.push(0);
 
     data.turns.forEach(turn => {
         // Clone current state at start of turn
@@ -443,7 +451,7 @@ function updateTaskProgress(progress) {
     fill.style.width = `${pct}%`;
     text.textContent = `${pct}%`;
 
-    if (GameState.gameData.gameResult && GameState.currentTurnIndex === GameState.totalTurns - 1) {
+    if (GameState.gameData.gameResult && GameState.currentTurnIndex === GameState.totalStates - 1) {
         if (GameState.gameData.gameResult.includes('Impostor')) {
             fill.classList.add('game-over');
         } else {
@@ -455,7 +463,13 @@ function updateTaskProgress(progress) {
 }
 
 function updateTurnDisplay(turn) {
-    if (!turn) return;
+    if (!turn) {
+        document.getElementById('turn-display').textContent = 'T0';
+        const badge = document.getElementById('phase-display');
+        badge.textContent = 'start';
+        badge.className = 'phase-badge';
+        return;
+    }
     document.getElementById('turn-display').textContent = `T${turn.turnNumber}`;
     const badge = document.getElementById('phase-display');
     badge.textContent = turn.phase;
@@ -464,7 +478,7 @@ function updateTurnDisplay(turn) {
 
 function updateTimeline() {
     const timeline = document.getElementById('timeline');
-    timeline.max = Math.max(0, GameState.totalTurns - 1);
+    timeline.max = Math.max(0, GameState.totalStates - 1);
     timeline.value = GameState.currentTurnIndex;
 }
 
@@ -537,7 +551,7 @@ function updateActivityLog(currentTurnIndex) {
         turn.events.forEach(event => {
             const entry = document.createElement('div');
             entry.className = `log-entry ${event.type}`;
-            if (turnIdx === currentTurnIndex) entry.classList.add('current-turn');
+            if (turnIdx === currentTurnIndex - 1) entry.classList.add('current-turn');
 
             const text = formatEventText(turn, event);
             entry.textContent = text;
@@ -548,7 +562,7 @@ function updateActivityLog(currentTurnIndex) {
         if (turn.voteResult && turn.voteResult.ejected) {
             const entry = document.createElement('div');
             entry.className = 'log-entry voteout';
-            if (turnIdx === currentTurnIndex) entry.classList.add('current-turn');
+            if (turnIdx === currentTurnIndex - 1) entry.classList.add('current-turn');
             entry.textContent = `T${turn.turnNumber}: ${turn.voteResult.ejected} was voted out`;
             container.appendChild(entry);
         }
@@ -818,7 +832,7 @@ function pause() {
 function scheduleNext() {
     const delay = 2000 / GameState.playbackSpeed;
     GameState.playbackTimer = setTimeout(() => {
-        if (GameState.currentTurnIndex < GameState.totalTurns - 1) {
+        if (GameState.currentTurnIndex < GameState.totalStates - 1) {
             GameState.currentTurnIndex++;
             renderCurrentState();
             if (GameState.isPlaying) scheduleNext();
@@ -830,7 +844,7 @@ function scheduleNext() {
 
 function nextTurn() {
     if (!GameState.gameData) return;
-    if (GameState.currentTurnIndex < GameState.totalTurns - 1) {
+    if (GameState.currentTurnIndex < GameState.totalStates - 1) {
         GameState.currentTurnIndex++;
         renderCurrentState();
     }
@@ -852,13 +866,13 @@ function jumpToStart() {
 
 function jumpToEnd() {
     if (!GameState.gameData) return;
-    GameState.currentTurnIndex = GameState.totalTurns - 1;
+    GameState.currentTurnIndex = GameState.totalStates - 1;
     renderCurrentState();
 }
 
 function seekToTurn(index) {
     if (!GameState.gameData) return;
-    GameState.currentTurnIndex = Math.max(0, Math.min(index, GameState.totalTurns - 1));
+    GameState.currentTurnIndex = Math.max(0, Math.min(index, GameState.totalStates - 1));
     renderCurrentState();
 }
 
