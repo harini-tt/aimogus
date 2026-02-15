@@ -13,7 +13,7 @@ import argparse
 import logging
 import os
 import sys
-from datetime import datetime
+import uuid
 
 # ---------------------------------------------------------------------------
 # Ensure project root is on sys.path so local packages resolve
@@ -23,21 +23,21 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 # ---------------------------------------------------------------------------
-# Configure logging — show INFO+ messages from our agents module
+# Configure logging
 # ---------------------------------------------------------------------------
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
-LOG_FILE = os.path.join(LOG_DIR, f"game-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log")
+LOG_FILE = os.path.join(LOG_DIR, f"game-{uuid.uuid4()}.log")
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S",
-    handlers=[
-        logging.FileHandler(LOG_FILE, encoding="utf-8"),
-        logging.StreamHandler(sys.stdout),
-    ],
-)
+# Only the game logger (envs.game) writes to the replay log file.
+# All other loggers (httpx, agents.*) are kept at WARNING to stay quiet.
+logging.basicConfig(level=logging.WARNING)
+
+_game_logger = logging.getLogger("envs.game")
+_game_logger.setLevel(logging.INFO)
+_game_file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+_game_file_handler.setFormatter(logging.Formatter("%(message)s"))
+_game_logger.addHandler(_game_file_handler)
 
 from envs.game import AmongUs
 from envs.configs.game_config import FIVE_MEMBER_GAME, SEVEN_MEMBER_GAME
