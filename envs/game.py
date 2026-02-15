@@ -125,7 +125,7 @@ class AmongUs:
         impostor_names = [p.name for p in self.players if p.identity == "Impostor"]
         self.agents = []
         for idx, player in enumerate(self.players):
-            agent = self._build_agent(player, idx, player_names)
+            agent = self._build_agent(player, idx, player_names, impostor_names)
             known_impostors = impostor_names if player.identity == "Impostor" else []
             self.agents.append(
                 EnvAgentAdapter(
@@ -137,8 +137,9 @@ class AmongUs:
                 )
             )
 
-    def _build_agent(self, player, idx: int, player_names: list[str]):
+    def _build_agent(self, player, idx: int, player_names: list[str], impostor_names: list[str] | None = None):
         """Create the appropriate BaseAgent subclass for *player*."""
+        impostor_names = impostor_names or []
         role = _IDENTITY_TO_ROLE.get(player.identity, Role.CREWMATE)
         task_names = [str(t) for t in player.tasks] if len(player.tasks) > 0 else []
 
@@ -150,7 +151,22 @@ class AmongUs:
         provider = cfg.get("provider", "openai")
         model = cfg.get("model", "gpt-4o")
 
-        if provider == "openrouter":
+        if provider == "local":
+            from agents.local_agent import LocalModelAgent
+            return LocalModelAgent(
+                name=player.name,
+                role=role,
+                assigned_tasks=task_names,
+                player_names=player_names,
+                game_config_block=self.game_config_block,
+                known_impostors=impostor_names if role == Role.IMPOSTOR else [],
+                model_instance=cfg.get("model_instance"),
+                tokenizer=cfg.get("tokenizer"),
+                inference_lock=cfg.get("inference_lock"),
+                trajectory=cfg.get("trajectory"),
+                game_instructions=cfg.get("game_instructions", ""),
+            )
+        elif provider == "openrouter":
             return OpenRouterAgent(
                 name=player.name,
                 role=role,
